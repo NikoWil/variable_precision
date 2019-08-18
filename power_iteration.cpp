@@ -8,7 +8,8 @@
 #include "power_iteration.h"
 #include "segmentation/segmentation.h"
 
-CSR distribute_matrix(const CSR& matrix, const std::vector<int>& rowcnt, MPI_Comm comm, int root);
+// TODO: copy over from other code base
+//CSR distribute_matrix(const CSR& matrix, const std::vector<int>& rowcnt, MPI_Comm comm, int root);
 
 /*
    * I: CALCULATE METADATA
@@ -28,7 +29,7 @@ CSR distribute_matrix(const CSR& matrix, const std::vector<int>& rowcnt, MPI_Com
    *      3.2.1 yes:  increase precision, keep iterating
    *      3.2.2 no:   finish
    */
-std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>& x, const std::vector<int>& rowcnt, MPI_Comm comm, int root) {
+std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>& x, const std::vector<int>& rowcnt, MPI_Comm comm) {
   for (auto e : rowcnt) {
     assert(e >= 0);
   }
@@ -63,8 +64,17 @@ std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>
   auto old_result = x;
   std::vector<double> new_result(old_result.size());
 
-  // TODO: cache old_result == new_result, is calculated multiple times
-  while (half_precision || !done) {
+  int i = 0;
+  while ((half_precision || !done) && i < 100) {
+    if (rank == 0) {
+      std::cout << "Iteration: " << i << "\n";
+      for (const auto e : old_result) {
+        std::cout << get_head(e) << get_tail(e) << " ";
+      }
+      std::cout << " ";
+    }
+    ++i;
+
     auto partial_result = matrix.spmv(x);
 
     if (half_precision) {
@@ -88,7 +98,11 @@ std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>
       }
 
       if (old_result == new_result) {
+        std::cout << "Switching precision\n";
         half_precision = false;
+      }
+      if (rank == 0) {
+        print_vector(new_result, "current");
       }
 
     } else {
@@ -101,6 +115,21 @@ std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>
       }
     }
 
+    // normalize vector
+    double sum = std::accumulate(new_result.begin(), new_result.end(), 0.);
+    std::for_each(new_result.begin(), new_result.end(), [sum](double &n){ n /= sum; });
+
+    if (old_result == new_result) {
+      if (half_precision) {
+        std::cout << "Switching precision\n";
+        half_precision = false;
+      } else {
+        done = true;
+      }
+    }
+
     old_result = new_result;
   }
+
+  return old_result;
 }

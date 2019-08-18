@@ -6,6 +6,7 @@
 #define CODE_UTIL_HPP
 
 #include <iostream>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -32,18 +33,6 @@ std::vector<T> duplicate_indices(const std::vector<T>& values, const std::vector
     }
 
     return buffed_values;
-}
-
-template <typename T>
-std::vector<T> prefix_sums(const std::vector<T>& v) {
-    std::vector<T> sums(v.size());
-    sums.at(0) = 0;
-
-    for (unsigned i = 0; i < v.size() - 1; i++) {
-        sums.at(i + 1) = sums.at(i) + v.at(i);
-    }
-
-    return sums;
 }
 
 #endif // CODE_UTIL_HPP

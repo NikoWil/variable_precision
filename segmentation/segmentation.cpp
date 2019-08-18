@@ -15,11 +15,6 @@ union Seg_lazy {
   uint64_t u;
 };
 
-union Segmentation {
-  double d;
-  std::array<char, sizeof(double)> arr;
-};
-
 double fill_head(uint32_t head, double d) {
   Seg_lazy s{};
   s.u = head;
