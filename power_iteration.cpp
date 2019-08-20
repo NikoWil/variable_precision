@@ -66,14 +66,11 @@ std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>
 
   int i = 0;
   while ((half_precision || !done) && i < 100) {
-    if (rank == 0) {
-      std::cout << "Iteration: " << i << "\n";
-      for (const auto e : old_result) {
-        std::cout << get_head(e) << get_tail(e) << " ";
-      }
-      std::cout << " ";
-    }
     ++i;
+
+    if (rank == 0) {
+      print_vector(old_result, "");
+    }
 
     auto partial_result = matrix.spmv(x);
 
@@ -98,11 +95,7 @@ std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>
       }
 
       if (old_result == new_result) {
-        std::cout << "Switching precision\n";
         half_precision = false;
-      }
-      if (rank == 0) {
-        print_vector(new_result, "current");
       }
 
     } else {

@@ -14,7 +14,7 @@ ENDIF()
 
 ADD_EXECUTABLE(code)
 
-TARGET_SOURCES(code PRIVATE main.cpp power_iteration.cpp power_iteration.h)
+TARGET_SOURCES(code PRIVATE main.cpp power_iteration.cpp power_iteration.h communication.cpp communication.h)
 
 TARGET_LINK_LIBRARIES(code PRIVATE segmentation formats)
 

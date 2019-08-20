@@ -1,0 +1,22 @@
+GCC & Clang support type punning via unions (citation?)
+
+simple:
+union {
+  double,
+  uint_64t
+}
+double from head: create union, put uint_32t in, shift 32 bits to left
+head from double: create union, get uint_64t, shift 32 bits right
+
+General copy:
+  templated union, with number of segments, size per segment?, ???
+  assert: total size of segments <= sizeof double
+    is smaller allowed?
+    
+General:
+  only transform types for sending, to keep the rest of the code free from strange types
+  assume same endianness
+  compile time adjustment to endianness that was found on the machine?
+    -> assume same CPU (architecture) everywhere
+      what is the endianness of x86?
+  openMP to parallelize SpmV, to avoid being CPU bound
