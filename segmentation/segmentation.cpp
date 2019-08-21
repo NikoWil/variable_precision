@@ -2,7 +2,6 @@
 // Created by niko on 8/14/19.
 //
 
-#include <array>
 #include <cassert>
 #include <limits>
 
@@ -14,6 +13,11 @@ union Seg_lazy {
   double d;
   uint64_t u;
 };
+
+uint64_t to_uint64_t(double d) {
+  Seg_lazy s{d};
+  return s.u;
+}
 
 double fill_head(uint32_t head, double d) {
   Seg_lazy s{};

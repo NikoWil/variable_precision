@@ -74,7 +74,7 @@ unsigned num_values() const {
   return m_values.size();
 }
 
-void print() {
+void print() const {
   print_vector(m_values, "m_values");
   print_vector(m_colidx, "m_colidx");
   print_vector(m_rowptr, "m_rowptr");

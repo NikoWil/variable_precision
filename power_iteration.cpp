@@ -3,43 +3,41 @@
 //
 
 #include <cassert>
+#include <cmath>
 #include <numeric>
 
 #include "power_iteration.h"
 #include "segmentation/segmentation.h"
 
-// TODO: copy over from other code base
-//CSR distribute_matrix(const CSR& matrix, const std::vector<int>& rowcnt, MPI_Comm comm, int root);
+std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>& x) {
+  auto new_result = x;
+  std::vector<double> old_result;
 
-/*
-   * I: CALCULATE METADATA
-   *  calculate rows per process on all nodes
-   *  calculate displs/ sendcnts for all nodes
-   *
-   * II: DISTRIBUTE DATA
-   *  distribute matrix
-   *  distribute x
-   *
-   * III: ITERATE
-   *  1. calculate local result_s = matrix_s * x_s
-   *  2. distribute result_s (MPI_Alltoallv ?)
-   *  3. check if result has changed from last time
-   *    3.1 yes:  keep iterating
-   *    3.2 no:   is more precision available?
-   *      3.2.1 yes:  increase precision, keep iterating
-   *      3.2.2 no:   finish
-   */
-std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>& x, const std::vector<int>& rowcnt, MPI_Comm comm) {
+  int i = 0;
+  while(old_result != new_result && i < 10000) {
+    old_result = new_result;
+    new_result = matrix.spmv(old_result);
+
+    auto square_sum = std::accumulate(new_result.begin(), new_result.end(), 0., [](double curr, double d){ return curr + d * d; });
+    auto norm_fac = sqrt(square_sum);
+    std::for_each(new_result.begin(), new_result.end(), [norm_fac](double& d) { d /= norm_fac; });
+
+    ++i;
+  }
+
+  std::cout << "single node: " << i << " iterations\n";
+  return new_result;
+}
+
+std::vector<double> power_iteration(const CSR& matrix_slice, const std::vector<double>& x, const std::vector<int>& rowcnt, MPI_Comm comm) {
   for (auto e : rowcnt) {
     assert(e >= 0);
   }
-  assert(x.size() == matrix.num_cols());
+  assert(x.size() == matrix_slice.num_cols());
 
-  // TODO: Algorithm
   int s_rank, s_comm_size;
   MPI_Comm_rank(comm, &s_rank);
   MPI_Comm_size(comm, &s_comm_size);
-
   if (s_rank < 0) {
     std::cout << "Erronous value for MPI_Comm_rank: " << s_rank << "\n";
     std::exit(1);
@@ -51,7 +49,7 @@ std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>
   unsigned rank{static_cast<unsigned>(s_rank)};
   unsigned comm_size{static_cast<unsigned >(s_comm_size)};
 
-  assert(matrix.num_rows() == static_cast<unsigned>(rowcnt.at(rank)));
+  assert(matrix_slice.num_rows() == static_cast<unsigned>(rowcnt.at(rank)));
   assert(rowcnt.size() == comm_size);
 
   // prefix sum of rowcnt to get displs for MPI_Alltoallv
@@ -59,70 +57,114 @@ std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>
   displs.at(0) = 0;
   std::partial_sum(rowcnt.begin(), rowcnt.end() - 1, displs.begin() + 1);
 
+  std::vector<double> old_result;
+  std::vector<double> new_result = x;
+
+  const std::vector<int> sendcounts(comm_size, rowcnt.at(rank));
+  const std::vector<int> sdispls(comm_size, 0);
+
   bool half_precision = true;
   bool done = false;
-  auto old_result = x;
-  std::vector<double> new_result(old_result.size());
-
   int i = 0;
-  while ((half_precision || !done) && i < 100) {
-    ++i;
+  while(!done && i < 10000) {
+    old_result = new_result;
 
-    if (rank == 0) {
-      print_vector(old_result, "");
-    }
-
-    auto partial_result = matrix.spmv(x);
+    auto partial_result = matrix_slice.spmv(old_result);
 
     if (half_precision) {
-      // convert partial result to half precision
-      std::vector<uint32_t> front_halves;
-      front_halves.reserve(partial_result.size());
+      std::vector<uint32_t> partial_result_heads;
       for (const auto e : partial_result) {
-        front_halves.push_back(get_head(e));
+        partial_result_heads.push_back(get_head(e));
       }
+      std::vector<uint32_t> result_heads(x.size());
 
-      // distribute half precision values
-      std::vector<uint32_t> result_half_precision(old_result.size());
-      MPI_Alltoallv(front_halves.data(), rowcnt.data(), displs.data(),
-                    MPI_UINT32_T, result_half_precision.data(), rowcnt.data(),
-                    displs.data(), MPI_UINT32_T, comm);
+      MPI_Alltoallv(partial_result_heads.data(), sendcounts.data(), sdispls.data(), MPI_UINT32_T, result_heads.data(), rowcnt.data(), displs.data(), MPI_UINT32_T, comm);
 
-      // convert back to double
-      new_result.clear();
-      for (const auto e : result_half_precision) {
-        new_result.push_back(fill_head(e));
+      for (size_t k = 0; k < result_heads.size(); ++k) {
+        new_result.at(k) = fill_head(result_heads.at(k));
       }
-
-      if (old_result == new_result) {
-        half_precision = false;
-      }
-
+      /*if (rank == 1) {
+        print_vector(partial_result, std::to_string(i) + " partial");
+        print_vector(new_result, std::to_string(i) + " cut off");
+      }*/
     } else {
-      // distribute double
-      MPI_Alltoallv(partial_result.data(), rowcnt.data(), displs.data(),
-                    MPI_DOUBLE, new_result.data(), rowcnt.data(), displs.data(),
-                    MPI_DOUBLE, comm);
-      if (old_result == new_result) {
-        done = true;
-      }
+      MPI_Alltoallv(partial_result.data(), sendcounts.data(), sdispls.data(), MPI_DOUBLE, new_result.data(), rowcnt.data(), displs.data(), MPI_DOUBLE, comm);
     }
 
-    // normalize vector
-    double sum = std::accumulate(new_result.begin(), new_result.end(), 0.);
-    std::for_each(new_result.begin(), new_result.end(), [sum](double &n){ n /= sum; });
+    auto square_sum = std::accumulate(new_result.begin(), new_result.end(), 0., [](double curr, double d){ return curr + d * d; });
+    auto norm_fac = sqrt(square_sum);
+    std::for_each(new_result.begin(), new_result.end(), [norm_fac](double& d) { d /= norm_fac; });
 
     if (old_result == new_result) {
       if (half_precision) {
-        std::cout << "Switching precision\n";
+        std::cout << "Rank " << rank << ", iteration " << i << ", switching precision\n";
+        if (rank == 0) {
+          print_vector(old_result, "intermediate result");
+        }
         half_precision = false;
       } else {
+        std::cout << "Rank " << rank << ", iteration " << i << ", done\n";
         done = true;
       }
     }
-
-    old_result = new_result;
+    MPI_Barrier(comm);
+    ++i;
   }
 
-  return old_result;
+  return new_result;
+}
+
+std::vector<double> power_iteration_fixed(const CSR& matrix_slice, const std::vector<double>&x, const std::vector<int>& rowcnt, MPI_Comm comm) {
+  for (auto e : rowcnt) {
+    assert(e >= 0);
+  }
+  assert(x.size() == matrix_slice.num_cols());
+
+  int s_rank, s_comm_size;
+  MPI_Comm_rank(comm, &s_rank);
+  MPI_Comm_size(comm, &s_comm_size);
+  if (s_rank < 0) {
+    std::cout << "Erronous value for MPI_Comm_rank: " << s_rank << "\n";
+    std::exit(1);
+  }
+  if (s_comm_size < 0) {
+    std::cout << "Erronous value for MPI_Comm_size: " << s_comm_size << "\n";
+    std::exit(1);
+  }
+  unsigned rank{static_cast<unsigned>(s_rank)};
+  unsigned comm_size{static_cast<unsigned >(s_comm_size)};
+
+  assert(matrix_slice.num_rows() == static_cast<unsigned>(rowcnt.at(rank)));
+  assert(rowcnt.size() == comm_size);
+
+  // prefix sum of rowcnt to get displs for MPI_Alltoallv
+  std::vector<int> displs(rowcnt.size());
+  displs.at(0) = 0;
+  std::partial_sum(rowcnt.begin(), rowcnt.end() - 1, displs.begin() + 1);
+
+  std::vector<double> old_result;
+  std::vector<double> new_result = x;
+
+  const std::vector<int> sendcounts(comm_size, rowcnt.at(rank));
+  const std::vector<int> sdispls(comm_size, 0);
+
+  int i = 0;
+  while(old_result != new_result && i < 10000) {
+    /*if (rank == 0) {
+      print_vector(new_result, "iteration " + std::to_string(i) + "\t");
+    }*/
+
+    old_result = new_result;
+
+    auto partial_result = matrix_slice.spmv(old_result);
+    MPI_Alltoallv(partial_result.data(), sendcounts.data(), sdispls.data(), MPI_DOUBLE, new_result.data(), rowcnt.data(), displs.data(), MPI_DOUBLE, comm);
+
+    auto square_sum = std::accumulate(new_result.begin(), new_result.end(), 0., [](double curr, double d){ return curr + d * d; });
+    auto norm_fac = sqrt(square_sum);
+    std::for_each(new_result.begin(), new_result.end(), [norm_fac](double& d) { d /= norm_fac; });
+
+    ++i;
+  }
+
+  return new_result;
 }

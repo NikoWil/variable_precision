@@ -6,6 +6,7 @@
 #define CODE_UTIL_HPP
 
 #include <iostream>
+#include <mpi.h>
 #include <numeric>
 #include <string>
 #include <vector>
@@ -17,6 +18,20 @@ void print_vector(const std::vector<T> v, const std::string& name) {
         std::cout << e << " ";
     }
     std::cout << std::endl;
+}
+
+template <typename T>
+void print_per_rank(T s, MPI_Comm comm) {
+  int rank, comm_size;
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &comm_size);
+
+  for (int k = 0; k < comm_size; ++k) {
+    if (rank == k) {
+      std::cout << "rank: " << rank << ", " <<  s << std::endl;
+    }
+    MPI_Barrier(comm);
+  }
 }
 
 template <typename T>
