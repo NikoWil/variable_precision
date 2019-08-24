@@ -1,0 +1,57 @@
+#include <cstdint>
+#include <iostream>
+
+struct Lazy_Seg {
+    double d;
+    uint64_t u;
+};
+
+struct Segmentation {
+    double val;
+    char segments[8];
+};
+
+template <int offset, int to_copy>
+struct copy_helper {
+    static_assert(sizeof(double) >= offset + to_copy);
+
+    static constexpr void copy(Segmentation seg, double& val) {
+        Segmentation helper{val};
+        helper.segments[offset] &= 0;
+
+        val |= seg.segments[offset]
+            | copy_helper<offset + 1, to_copy - 1>::copy(seg, val);
+    }
+};
+
+template <int offset>
+struct copy_helper<offset, 0> {
+    static_assert(sizeof(double) >= offset);
+
+    static constexpr void copy(Segmentation seg, double& d) {}
+};
+
+void test(double *d) {
+    Segmentation s{0};
+    s.segments[2] = 1;
+    *d = s.val;
+}
+
+int main() {
+    Segmentation s{0.};
+    s.segments[0] = 0xff;
+    s.segments[1] = 0xff;
+
+    std::cout << s.val << "\n";
+
+    double d{};
+    test(&d);
+    std::cout << d << "\n";
+
+    Lazy_Seg l{0.};
+    l.u = 0xffff;
+    std::cout << l.d << "\n";
+    std::cout << l.u << "\n";
+
+    return 0; 
+}
