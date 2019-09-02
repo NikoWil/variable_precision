@@ -18,7 +18,6 @@ explicit CSR(const std::vector<double>& values, const std::vector<int>& colidx, 
   :m_values(values), m_colidx(colidx), m_rowptr(rowptr), m_num_cols(num_cols)
   {
     assert(values.size() == colidx.size() && "CSR size of values and colidx must be same");
-    assert(num_cols > 0 && "CSR matrix must have at least 1 column");
     for (const auto& e : colidx) {
       assert(e >= 0 && static_cast<unsigned>(e) < num_cols && "CSR each colidx must fulfill 0 <= idx < num_cols");
     }
@@ -46,6 +45,43 @@ static CSR unit(unsigned n) {
     rowptr.at(i) = i;
   }
   rowptr.back() = static_cast<int>(n);
+
+  return CSR{values, colidx, rowptr, n};
+}
+
+static CSR symmetric(unsigned n, double density) {
+  std::vector<std::vector<double>> matrix{n, std::vector<double>(n, 0)};
+
+  double elements = n * n;
+  double non_zeroes = 0;
+  double curr_density = 0;
+  while (curr_density < density) {
+    unsigned row = rand() % n;
+    unsigned col = rand() % n;
+
+    if (matrix.at(row).at(col) == 0.) {
+      const double val = 1
+          + 20 * (static_cast<double>(rand()) / static_cast<double>(RAND_MAX));
+      matrix.at(row).at(col) = val;
+      matrix.at(col).at(row) = val;
+
+      non_zeroes += row == col ? 1 : 2;
+      curr_density = non_zeroes / elements;
+    }
+  }
+
+  std::vector<double> values{};
+  std::vector<int> colidx{};
+  std::vector<int> rowptr{0};
+  for (size_t row = 0; row < matrix.size(); ++row) {
+    for (size_t col = 0; col < matrix.at(row).size(); ++col) {
+      if (matrix.at(row).at(col) != 0) {
+        values.push_back(matrix.at(row).at(col));
+        colidx.push_back(col);
+      }
+    }
+    rowptr.push_back(values.size());
+  }
 
   return CSR{values, colidx, rowptr, n};
 }
