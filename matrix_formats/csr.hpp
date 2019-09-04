@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cassert>
 #include <iostream>
+#include <random>
 #include <vector>
 
 #include "../util/util.hpp"
@@ -19,9 +20,12 @@ explicit CSR(const std::vector<double>& values, const std::vector<int>& colidx, 
   {
     assert(values.size() == colidx.size() && "CSR size of values and colidx must be same");
     for (const auto& e : colidx) {
+      (void)e;
       assert(e >= 0 && static_cast<unsigned>(e) < num_cols && "CSR each colidx must fulfill 0 <= idx < num_cols");
     }
     for (const auto& e : rowptr) {
+
+      (void)e;
       assert(e >= 0 && static_cast<size_t>(e) <= values.size() && "CSR rowptr entries must fulfill 0 <= e <= values.size()");
     }
 
@@ -49,23 +53,33 @@ static CSR unit(unsigned n) {
   return CSR{values, colidx, rowptr, n};
 }
 
-static CSR symmetric(unsigned n, double density) {
+static CSR symmetric(unsigned n, double density, std::mt19937 rng) {
+  constexpr unsigned lower = 1;
+  constexpr unsigned upper = 10000;
+  static_assert(lower < upper, "");
+
   std::vector<std::vector<double>> matrix{n, std::vector<double>(n, 0)};
+  std::uniform_real_distribution<> value_distrib(lower, upper);
+  std::uniform_real_distribution<> diag_distrib(n * upper + 1, n * (lower + upper) + 1);
+  std::uniform_int_distribution<> coord_distrib(0, n - 1);
+
+  // make the matrix strictly diagonally dominated
+  for (unsigned i = 0; i < n; ++i) {
+    matrix.at(i).at(i) = diag_distrib(rng);
+  }
 
   double elements = n * n;
-  double non_zeroes = 0;
+  double non_zeroes = n;
   double curr_density = 0;
   while (curr_density < density) {
-    unsigned row = rand() % n;
-    unsigned col = rand() % n;
+    unsigned row = coord_distrib(rng);
+    unsigned col = coord_distrib(rng);
 
-    if (matrix.at(row).at(col) == 0.) {
-      const double val = 1
-          + 20 * (static_cast<double>(rand()) / static_cast<double>(RAND_MAX));
+    if (row != col && matrix.at(row).at(col) == 0.) {
+      const double val = value_distrib(rng) + 0.0625;
       matrix.at(row).at(col) = val;
-      matrix.at(col).at(row) = val;
 
-      non_zeroes += row == col ? 1 : 2;
+      non_zeroes += 1;
       curr_density = non_zeroes / elements;
     }
   }
@@ -115,6 +129,7 @@ void print() const {
   print_vector(m_colidx, "m_colidx");
   print_vector(m_rowptr, "m_rowptr");
   std::cout << "m_num_cols: " << m_num_cols << std::endl;
+  std::cout << "m_num_rows: " << this->num_rows() << std::endl;
 }
 
 private:

@@ -9,6 +9,8 @@
 
 uint64_t to_uint64_t(double d);
 
+double to_double(uint64_t u);
+
 double fill_head(uint32_t head, double d = 0);
 
 double fill_tail(uint32_t tail, double d = 0);

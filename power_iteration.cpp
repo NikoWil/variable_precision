@@ -5,20 +5,21 @@
 #include <cassert>
 #include <cmath>
 #include <numeric>
+#include <tuple>
 
 #include "power_iteration.h"
 #include "segmentation/segmentation.h"
 
-const unsigned iteration_limit = 10000;
-const double eps_scaling = 1 << 7;
+const unsigned iteration_limit = 1000;
+const double eps_scaling = 1u << 10u;
 
-std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>& x) {
+std::pair<std::vector<double>, bool> power_iteration(const CSR& matrix, const std::vector<double>& x) {
   auto new_result = x;
   std::vector<double> old_result;
 
   bool done = false;
   unsigned i = 0;
-  while(!done && /*old_result != new_result &&*/ i < iteration_limit) {
+  while(!done && old_result != new_result && i < iteration_limit) {
     old_result = new_result;
     new_result = matrix.spmv(old_result);
 
@@ -35,13 +36,14 @@ std::vector<double> power_iteration(const CSR& matrix, const std::vector<double>
 
     ++i;
   }
+  //std::cout << "Simple power iteration " << i << " iterations" << std::endl;
 
-  std::cout << "single node: " << i << " iterations\n";
-  return new_result;
+  return std::make_pair(new_result, done);
 }
 
-std::vector<double> power_iteration(const CSR& matrix_slice, const std::vector<double>& x, const std::vector<int>& rowcnt, MPI_Comm comm) {
+std::tuple<std::vector<double>, int, unsigned, bool> power_iteration(const CSR& matrix_slice, const std::vector<double>& x, const std::vector<int>& rowcnt, MPI_Comm comm) {
   for (auto e : rowcnt) {
+    (void)e;
     assert(e >= 0);
   }
   assert(x.size() == matrix_slice.num_cols());
@@ -73,6 +75,8 @@ std::vector<double> power_iteration(const CSR& matrix_slice, const std::vector<d
 
   const std::vector<int> sendcounts(comm_size, rowcnt.at(rank));
   const std::vector<int> sdispls(comm_size, 0);
+
+  int precision_switch = -1;
 
   bool half_precision = true;
   bool done = false;
@@ -110,30 +114,29 @@ std::vector<double> power_iteration(const CSR& matrix_slice, const std::vector<d
 
     const double half_epsilon = fill_head(0x3ff00001) - 1;
 
-    if (half_precision && diff < half_epsilon / eps_scaling) {
-      std::cout << "Rank " << rank << ", iteration " << i << ", switching precision\n";
+    if (half_precision && old_result != new_result && diff < half_epsilon / eps_scaling) {
+      /*std::cout << "Rank " << rank << ", iteration " << i << ", switching precision\n";
       MPI_Barrier(comm);
       if (rank == 0) {
         print_vector(old_result, "intermediate result");
-      }
+      }*/
+      precision_switch = i + 1;
       half_precision = false;
-    } else if (!half_precision && diff < std::numeric_limits<double>::epsilon() / eps_scaling) {
-      std::cout << "Rank " << rank << ", iteration " << i << ", done\n";
-      MPI_Barrier(comm);
+    } else if (!half_precision && old_result != new_result && diff < std::numeric_limits<double>::epsilon() / eps_scaling) {
+      /*std::cout << "Rank " << rank << ", iteration " << i << ", done\n";
+      MPI_Barrier(comm);*/
       done = true;
     }
-    MPI_Barrier(comm);
+    //MPI_Barrier(comm);
     ++i;
   }
 
-  if (rank == 0) {
-    std::cout << "Variable precision power iteration, " << i << " iterations" << std::endl;
-  }
-  return new_result;
+  return std::make_tuple(new_result, precision_switch, i, done);
 }
 
-std::vector<double> power_iteration_fixed(const CSR& matrix_slice, const std::vector<double>&x, const std::vector<int>& rowcnt, MPI_Comm comm) {
+std::tuple<std::vector<double>, unsigned, bool> power_iteration_fixed(const CSR& matrix_slice, const std::vector<double>&x, const std::vector<int>& rowcnt, MPI_Comm comm) {
   for (auto e : rowcnt) {
+    (void)e;
     assert(e >= 0);
   }
   assert(x.size() == matrix_slice.num_cols());
@@ -168,7 +171,7 @@ std::vector<double> power_iteration_fixed(const CSR& matrix_slice, const std::ve
 
   bool done = false;
   unsigned i = 0;
-  while(!done && /*old_result != new_result &&*/ i < iteration_limit) {
+  while(!done && old_result != new_result && i < iteration_limit) {
     old_result = new_result;
 
     auto partial_result = matrix_slice.spmv(old_result);
@@ -187,9 +190,9 @@ std::vector<double> power_iteration_fixed(const CSR& matrix_slice, const std::ve
     ++i;
   }
 
-  if (rank == 0) {
+  /*if (rank == 0) {
     std::cout << "Fixed precision power iteration, " << i << " iterations" << std::endl;
-  }
+  }*/
 
-  return new_result;
+  return std::make_tuple(new_result, i, done);
 }

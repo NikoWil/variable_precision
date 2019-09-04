@@ -5,7 +5,6 @@
 #include <cassert>
 #include <limits>
 
-#include "bitwise_helper.h"
 #include "segmentation.h"
 
 union Seg_lazy {
@@ -19,13 +18,19 @@ uint64_t to_uint64_t(double d) {
   return s.u;
 }
 
+double to_double(uint64_t u) {
+  Seg_lazy s{};
+  s.u = u;
+
+  return s.d;
+}
+
 double fill_head(uint32_t head, double d) {
   Seg_lazy s{};
   s.u = head;
-  s.u = s.u << 32;
+  s.u = s.u << 32u;
 
-  uint64_t from_double = to_uint64_bitwise(d);
-  from_double &= 0x00000000FFFFFFFF;
+  auto from_double = get_tail(d);
   s.u |= from_double;
 
   return s.d;
@@ -35,16 +40,15 @@ double fill_tail(uint32_t tail, double d) {
   Seg_lazy s{};
   s.u = tail;
 
-  auto from_double = to_uint64_bitwise(d);
-  from_double &= 0xFFFFFFFF00000000;
-  s.u |= from_double;
+  auto from_double = get_head(d);
+  s.u |= static_cast<uint64_t>(from_double) << 32u;
 
   return s.d;
 }
 
 uint32_t get_head(double d) {
   Seg_lazy s{d};
-  auto intermediate = s.u >> 32;
+  auto intermediate = s.u >> 32u;
 
   assert(intermediate <= std::numeric_limits<uint32_t>::max());
   return static_cast<uint32_t>(intermediate);
@@ -53,7 +57,8 @@ uint32_t get_head(double d) {
 uint32_t get_tail(double d) {
   Seg_lazy s{d};
 
-  uint32_t mask = (uint64_t(1) << 32) - 1;
+  // TODO: use uint64_t for mask?
+  uint32_t mask = (static_cast<uint64_t>(1) << 32u) - 1;
 
   s.u = s.u & mask;
 

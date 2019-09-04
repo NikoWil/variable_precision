@@ -1,8 +1,8 @@
-ADD_LIBRARY(segmentation bitwise_helper.cpp)
+ADD_LIBRARY(segmentation)
 
 set_target_properties(segmentation PROPERTIES LINKER_LANGUAGE CXX)
 
-TARGET_SOURCES(segmentation PUBLIC segmentation.h segmentation.cpp bitwise_helper.h)
+TARGET_SOURCES(segmentation PUBLIC segmentation.h segmentation.cpp)
 
 IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     TARGET_COMPILE_OPTIONS(segmentation PRIVATE /W4 /WX)
