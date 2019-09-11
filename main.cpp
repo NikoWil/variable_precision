@@ -30,7 +30,8 @@ int main(int argc, char* argv[]) {
 
   std::cout << std::setprecision(20);
 
-  measure_performance(rng, rank, comm_size);
+  //measure_performance(rng, rank, comm_size);
+  CSR::diagonally_dominant(3000, 0.5, rng).print();
 
   MPI_Finalize();
 

@@ -9,6 +9,7 @@
 #include <cassert>
 #include <iostream>
 #include <random>
+#include <set>
 #include <vector>
 
 #include "../util/util.hpp"
@@ -94,6 +95,51 @@ static CSR symmetric(unsigned n, double density, std::mt19937 rng) {
         colidx.push_back(col);
       }
     }
+    rowptr.push_back(values.size());
+  }
+
+  return CSR{values, colidx, rowptr, n};
+}
+
+static CSR diagonally_dominant(unsigned n, double density, std::mt19937 rng) {
+  assert(density * n >= 1 && "Matrix needs at least 1 element per row");
+
+  constexpr unsigned lower = 1;
+  constexpr unsigned upper = 10000;
+  static_assert(lower < upper, "");
+
+  std::uniform_int_distribution<> index_distrib(0, n - 1);
+  std::uniform_real_distribution<> value_distrib(lower, upper);
+  // TODO: more variety in the diagonal?
+  std::uniform_real_distribution<> diag_distrib(n * upper + 1, n * (lower + upper) + 1);
+
+  std::vector<double> values;
+  std::vector<int> colidx;
+  std::vector<int> rowptr;
+  rowptr.push_back(0);
+  // construct all the rows
+  for (unsigned row = 0; row < n; ++row) {
+    std::vector<double> row_values{};
+    // values for 1 row
+    for (unsigned k = 0; k < density * n; ++k) {
+      row_values.push_back(value_distrib(rng) + 0.0625);
+    }
+
+    std::set<int> colidx_set{};
+    colidx_set.insert(row);
+    while (colidx_set.size() < density * n) {
+      colidx_set.insert(index_distrib(rng));
+    }
+    std::vector<int> row_colidx(colidx_set.size());
+    std::copy(std::begin(colidx_set), std::end(colidx_set), std::begin(row_colidx));
+
+    // insert diagonal dominant element
+    auto diag_index = std::distance(std::begin(row_colidx), std::find(std::begin(row_colidx), std::end(row_colidx), row));
+    row_values.at(diag_index) = diag_distrib(rng);
+
+    // update matrix
+    values.insert(std::end(values), std::begin(row_values), std::end(row_values));
+    colidx.insert(std::end(colidx), std::begin(row_colidx), std::end(row_colidx));
     rowptr.push_back(values.size());
   }
 
