@@ -1,0 +1,5 @@
+ADD_LIBRARY(segmentation_char INTERFACE)
+
+TARGET_SOURCES(segmentation_char INTERFACE segmentation_char.h)
+
+TARGET_INCLUDE_DIRECTORIES(segmentation_char INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

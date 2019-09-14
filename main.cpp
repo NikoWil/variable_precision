@@ -7,6 +7,8 @@
 #include "communication.h"
 #include "matrix_formats/csr.hpp"
 #include "power_iteration.h"
+#include "segmentation/segmentation.h"
+#include "segmentation_char/segmentation_char.h"
 #include "util/util.hpp"
 
 void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size);
@@ -30,8 +32,22 @@ int main(int argc, char* argv[]) {
 
   std::cout << std::setprecision(20);
 
-  //measure_performance(rng, rank, comm_size);
-  CSR::diagonally_dominant(3000, 0.5, rng).print();
+  unsigned char chars[4];
+  uint64_t u = 0xFEDCBA9876543210;
+  double d = to_double(u);
+
+  std::cout << std::hex;
+  extract_slice<0, 3>(d, chars);
+  for (int i = 0; i < 4; ++i) {
+    std::cout << ((+chars[i]) & 0xFF) << " ";
+  }
+  std::cout << std::endl;
+  std::cout << u << std::endl;
+
+  std::cout << std::endl << "INSERT TEST" << std::endl;
+  unsigned char bytes[3] = {0xFF, 0xEE, 0xDD};
+  double into = insert_slice<0, 2>(bytes);
+  std::cout << to_uint64_t(into) << std::endl;
 
   MPI_Finalize();
 
@@ -39,7 +55,7 @@ int main(int argc, char* argv[]) {
 }
 
 void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) {
-  const int matrix_rows = 1u << 12u;
+  const int matrix_rows = 1u << 10u;
   if (rank == 0) {
     std::cout << "matrix rows: " << matrix_rows << "\n";
   }
@@ -47,7 +63,7 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
 
   CSR matrix = CSR::unit(0);
   if (rank == 0) {
-    matrix = CSR::symmetric(matrix_rows, 0.4, rng);
+    matrix = CSR::diagonally_dominant(matrix_rows, 0.2, rng);
   }
   if (rank == 0) {
     std::cout << "matrix generated" << std::endl;
@@ -77,17 +93,17 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
 
   if (rank == 0) {
     auto result_simple = power_iteration(matrix, x);
-    //print_vector(result_simple.first, "simple power iteration");
+    print_vector(result_simple.first, "simple power iteration");
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
   auto result = power_iteration(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
   if (rank == 0) {
-    //print_vector(result.first, "result");
+    print_vector(std::get<0>(result), "result");
   }
 
 
-  auto result_fixed = power_iteration_fixed(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
+  //auto result_fixed = power_iteration_fixed(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
   if (rank == 0) {
     //print_vector(result_fixed.first, "result fixed power iteration");
   }
@@ -97,8 +113,8 @@ void measure_performance(std::mt19937 rng, unsigned rank, unsigned comm_size) {
   if (rank == 0) {
     std::cout << "<matrix_size> <density_fac> <index> <mode> <time>\n\n";
   }
-  for (unsigned matrix_size = 1u << 13u; matrix_size <= 1u << 16u; matrix_size <<= 1u) {
-    for (unsigned density_fac = 0u; density_fac < 5; ++density_fac) {
+  for (unsigned matrix_size = 1u << 15u; matrix_size <= 1u << 20u; matrix_size <<= 1u) {
+    for (unsigned density_fac = 2u; density_fac < 3u; ++density_fac) {
       double density = density_fac * 0.1;
 
       for (unsigned index = 0u; index < 30u; ++index) {
@@ -129,7 +145,7 @@ void measure_performance(std::mt19937 rng, unsigned rank, unsigned comm_size) {
           rowcnt.push_back(end - start);
         }
 
-        for (unsigned k = 0u; k < 100u; ++k) {
+        for (unsigned k = 0u; k < 20u; ++k) {
           auto start = std::chrono::high_resolution_clock::now();
           auto result = power_iteration(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
           auto end = std::chrono::high_resolution_clock::now();
@@ -137,6 +153,7 @@ void measure_performance(std::mt19937 rng, unsigned rank, unsigned comm_size) {
           int precision_switch = std::get<1>(result);
           unsigned iterations = std::get<2>(result);
           bool done = std::get<3>(result);
+
           if (rank == 0) {
             std::cout << matrix_size << " "
                       << density_fac << " "
@@ -150,13 +167,14 @@ void measure_performance(std::mt19937 rng, unsigned rank, unsigned comm_size) {
           }
         }
 
-        for (unsigned k = 0u; k < 100u; ++k) {
+        for (unsigned k = 0u; k < 20u; ++k) {
           auto start = std::chrono::high_resolution_clock::now();
           auto result = power_iteration_fixed(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
           auto end = std::chrono::high_resolution_clock::now();
 
           unsigned iterations = std::get<1>(result);
           bool done = std::get<2>(result);
+
           if (rank == 0) {
             std::cout << matrix_size << " "
                       << density_fac << " "

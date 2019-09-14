@@ -22,7 +22,7 @@ ADD_EXECUTABLE(code)
 
 TARGET_SOURCES(code PRIVATE main.cpp power_iteration.cpp power_iteration.h communication.cpp communication.h)
 
-TARGET_LINK_LIBRARIES(code PRIVATE segmentation formats)
+TARGET_LINK_LIBRARIES(code PRIVATE segmentation formats segmentation_char)
 
 FIND_PACKAGE(MPI REQUIRED)
 
@@ -66,4 +66,5 @@ ENDIF()
 
 ADD_SUBDIRECTORY(matrix_formats)
 ADD_SUBDIRECTORY(segmentation)
+ADD_SUBDIRECTORY(segmentation_char)
 ADD_SUBDIRECTORY(util)
