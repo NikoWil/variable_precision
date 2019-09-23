@@ -5,11 +5,10 @@
 #ifndef CODE_SEGMENTATION_CHAR_H
 #define CODE_SEGMENTATION_CHAR_H
 
+#include <cstdint>
 #include <iostream>
 
 union Segmentation {
-  explicit Segmentation(double d) : d{d} {}
-
   static_assert(sizeof(double) == 8,
       "Assumption of IEEE floating point necessiates 8 bytes per double");
   double d;
@@ -38,7 +37,7 @@ struct Extract_helper<index, index> {
 
   static constexpr void copy(double d, unsigned char* c) {
     Segmentation seg{d};
-    *c = seg.c[sizeof(double) - index];
+    *c = seg.c[sizeof(double) - index - 1];
   }
 };
 
@@ -46,7 +45,7 @@ template <int start, int end>
 void extract_slice(double d, unsigned char (&chars)[end - start + 1]) {
   static_assert(start >= 0, "Extracting bytes before start of double");
   static_assert(end < sizeof(double), "Extracting bytes beyond end of double");
-  static_assert(start < end, "Extracting negative sized double slice");
+  static_assert(start <= end, "Extracting negative sized double slice");
 
   Extract_helper<start, end> eh;
   eh.copy(d, chars);
@@ -79,10 +78,10 @@ struct Insert_helper<index, index> {
 };
 
 template <int start, int end>
-double insert_slice(unsigned char (&chars)[end - start + 1]) {
+double insert_slice(const unsigned char (&chars)[end - start + 1]) {
   static_assert(start >= 0, "Inserting bytes before start of double");
   static_assert(end < sizeof(double), "Inserting bytes beyond end of double");
-  static_assert(start < end, "Inserting negative sized or empty slice");
+  static_assert(start <= end, "Inserting negative sized or empty slice");
 
   Insert_helper<start, end> ih;
   uint64_t u = ih.insert(chars);
@@ -92,22 +91,66 @@ double insert_slice(unsigned char (&chars)[end - start + 1]) {
 }
 
 // TODO: implement special case to fill/ insert whole double for double_slice
-/*
-template <int length>
-struct double_slice {
-  static_assert(length > 0, "Slice must have positive length");
-  static_assert(length <= sizeof(double), "Slice cannot exceed double");
+template <int start, int end>
+struct Double_slice {
+  static_assert(start >= 0, "Slice started before start of double");
+  static_assert(end < sizeof(double), "Slice exceeding end of double");
 
-  explicit double_slice(double d) {
-    extract_slice<0, length - 1>(d, bytes);
+  explicit Double_slice() : Double_slice(0.) {}
+
+  explicit Double_slice(double d) {
+    extract_slice<start, end>(d, bytes);
   }
 
-  double to_double() {
-    return insert_slice<0, length - 1>(bytes);
+  double to_double() const {
+    return insert_slice<start, end>(bytes);
+  }
+
+  bool operator==(const Double_slice<start, end>& other) const {
+    // TODO: make more efficient
+    bool eq = true;
+    for (int i = 0; i < end - start + 1; ++i) {
+      eq = eq && bytes[i] == other.bytes[i];
+    }
+    return eq;
+  }
+
+  void print_bytes() const {
+    for (auto b : bytes) {
+      std::cout << (+b & 0xFF) << " ";
+    }
+    std::cout << std::endl;
   }
 
 private:
-  char bytes[length]{0};
+  unsigned char bytes[end - start + 1];
 };
-*/
+
+template <>
+struct Double_slice<0, sizeof(double) - 1> {
+public:
+  explicit Double_slice() : Double_slice(0.) {}
+
+  explicit Double_slice(double d) : d{d} {}
+
+  double to_double() const {
+    return d;
+  }
+
+  bool operator==(const Double_slice<0, sizeof(double) - 1>& other) const {
+    return d == other.d;
+  }
+
+  void print_bytes() const {
+    Segmentation seg{d};
+    for (auto c : seg.c) {
+      std::cout << (+c & 0xFF) << " ";
+    }
+    std::cout << std::endl;
+  }
+
+private:
+  double d;
+};
+
 #endif // CODE_SEGMENTATION_CHAR_H

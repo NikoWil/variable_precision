@@ -9,6 +9,7 @@
 #include "power_iteration.h"
 #include "segmentation/segmentation.h"
 #include "segmentation_char/segmentation_char.h"
+#include "spmv.h"
 #include "util/util.hpp"
 
 void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size);
@@ -32,30 +33,15 @@ int main(int argc, char* argv[]) {
 
   std::cout << std::setprecision(20);
 
-  unsigned char chars[4];
-  uint64_t u = 0xFEDCBA9876543210;
-  double d = to_double(u);
-
-  std::cout << std::hex;
-  extract_slice<0, 3>(d, chars);
-  for (int i = 0; i < 4; ++i) {
-    std::cout << ((+chars[i]) & 0xFF) << " ";
-  }
-  std::cout << std::endl;
-  std::cout << u << std::endl;
-
-  std::cout << std::endl << "INSERT TEST" << std::endl;
-  unsigned char bytes[3] = {0xFF, 0xEE, 0xDD};
-  double into = insert_slice<0, 2>(bytes);
-  std::cout << to_uint64_t(into) << std::endl;
+  power_iteration_tests(rng, rank, comm_size);
 
   MPI_Finalize();
-
   return 0;
 }
 
 void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) {
-  const int matrix_rows = 1u << 10u;
+  const int matrix_rows = 3;
+  const double density = 0.5;
   if (rank == 0) {
     std::cout << "matrix rows: " << matrix_rows << "\n";
   }
@@ -63,7 +49,7 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
 
   CSR matrix = CSR::unit(0);
   if (rank == 0) {
-    matrix = CSR::diagonally_dominant(matrix_rows, 0.2, rng);
+    matrix = CSR::diagonally_dominant(matrix_rows, density, rng);
   }
   if (rank == 0) {
     std::cout << "matrix generated" << std::endl;
@@ -75,6 +61,7 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
   if (rank == 0) {
     for (unsigned i = 0; i < matrix_slice.num_cols(); ++i) {
       x.at(i) = distribution(rng);
+      //x.at(i) = 1;
     }
   }
   auto square_sum = std::accumulate(x.begin(), x.end(), 0., [](double curr, double d){ return curr + d * d; });
@@ -97,15 +84,22 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
-  auto result = power_iteration(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
-  if (rank == 0) {
-    print_vector(std::get<0>(result), "result");
+  constexpr int end = 0;
+  std::vector<Double_slice<0, end>> x_slice;
+  for (const auto v : x) {
+    x_slice.emplace_back(v);
   }
-
-
-  //auto result_fixed = power_iteration_fixed(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
+  auto seg_result = power_iteration_segmented<end>(matrix_slice, x_slice, rowcnt, MPI_COMM_WORLD);
   if (rank == 0) {
-    //print_vector(result_fixed.first, "result fixed power iteration");
+    auto res_vector = std::get<0>(seg_result);
+    auto iter_count = std::get<1>(seg_result);
+    auto done = std::get<2>(seg_result);
+    std::cout << "Segmented result: ";
+    for (const auto& s : res_vector) {
+      std::cout << s.to_double() << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "Iter_count: " << iter_count << ", done: " << done << std::endl;
   }
 }
 

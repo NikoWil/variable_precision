@@ -20,7 +20,7 @@ std::pair<std::vector<double>, bool> power_iteration(const CSR& matrix, const st
   bool done = false;
   unsigned i = 0;
   while(!done && old_result != new_result && i < iteration_limit) {
-    old_result = new_result;
+    std::swap(old_result, new_result);
     new_result = matrix.spmv(old_result);
 
     auto square_sum = std::accumulate(new_result.begin(), new_result.end(), 0., [](double curr, double d){ return curr + d * d; });
@@ -95,6 +95,7 @@ std::tuple<std::vector<double>, int, unsigned, bool> power_iteration(const CSR& 
 
       MPI_Alltoallv(partial_result_heads.data(), sendcounts.data(), sdispls.data(), MPI_UINT32_T, result_heads.data(), rowcnt.data(), displs.data(), MPI_UINT32_T, comm);
 
+      // TODO: remove extra overhead
       for (size_t k = 0; k < result_heads.size(); ++k) {
         new_result.at(k) = fill_head(result_heads.at(k));
       }
@@ -172,7 +173,7 @@ std::tuple<std::vector<double>, unsigned, bool> power_iteration_fixed(const CSR&
   bool done = false;
   unsigned i = 0;
   while(!done && old_result != new_result && i < iteration_limit) {
-    old_result = new_result;
+    std::swap(old_result, new_result);
 
     auto partial_result = matrix_slice.spmv(old_result);
     MPI_Alltoallv(partial_result.data(), sendcounts.data(), sdispls.data(), MPI_DOUBLE, new_result.data(), rowcnt.data(), displs.data(), MPI_DOUBLE, comm);
