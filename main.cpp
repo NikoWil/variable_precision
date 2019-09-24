@@ -101,6 +101,11 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
     std::cout << std::endl;
     std::cout << "Iter_count: " << iter_count << ", done: " << done << std::endl;
   }
+
+  auto var_result = power_iteration_variable(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
+  if (rank == 0) {
+    print_vector(var_result, "var_result");
+  }
 }
 
 void measure_performance(std::mt19937 rng, unsigned rank, unsigned comm_size) {

@@ -18,6 +18,10 @@ std::tuple<std::vector<double>, int, unsigned, bool> power_iteration(const CSR&m
 
 std::tuple<std::vector<double>, unsigned, bool> power_iteration_fixed(const CSR&matrix_slice, const std::vector<double>&x, const std::vector<int>& rowcnt, MPI_Comm comm);
 
+std::vector<double> power_iteration_variable(const CSR& matrix_slice,
+    const std::vector<double>& x, const std::vector<int>& rowcnt,
+    MPI_Comm comm, int iteration_limit = 1000);
+
 template <int end>
 std::tuple<std::vector<Double_slice<0, end>>, int, bool>
     power_iteration_segmented(
@@ -85,22 +89,16 @@ std::tuple<std::vector<Double_slice<0, end>>, int, bool>
     char_recvdispls.push_back(r * sizeof(Double_slice<0, end>));
   }
 
-  bool done = false;
+  bool done{false};
   int i = 0;
   do {
     std::swap(old_result, new_result);
 
     spmv(matrix_slice, new_result, partial_result.begin(), partial_result.end());
 
-    // TODO:
-    // MPI_Alltoallv(const void *sendbuf, const int sendcounts[], const int sencdispls[],
-    //  MPI_Datatype sendtype, void *recvbuf, const int recvcounts[],
-    // const int rdispls[], MPI_Datatype recvtype, MPI_Comm comm)
     MPI_Alltoallv(partial_result.data(), char_sendcnts.data(), char_sdispls.data(),
         MPI_BYTE, new_result.data(), char_recvcnt.data(), char_recvdispls.data(),
         MPI_BYTE, comm);
-    //MPI_Alltoallv(partial_result.data(), sendcounts.data(), sdispls.data(), MPI_DOUBLE,
-    //    new_result.data(), rowcnt.data(), recvdispls.data(), MPI_DOUBLE, comm);
 
     auto square_sum = std::accumulate(new_result.begin(), new_result.end(), 0.,
       [](double curr, Double_slice<0, end> ds){
@@ -113,17 +111,12 @@ std::tuple<std::vector<Double_slice<0, end>>, int, bool>
       new_result.at(k) = Double_slice<0, end>{old_val / norm_fac};
     }
 
-    //done = old_result == new_result;
     const auto new_result_char = reinterpret_cast<unsigned char*>(new_result.data());
     const auto old_result_char = reinterpret_cast<unsigned char*>(old_result.data());
     done = std::equal(new_result_char, new_result_char + (sizeof(Double_slice<0, end>) * new_result.size()),
         old_result_char);
     ++i;
   } while(!done && i < iteration_limit);
-
-  //if (rank == 0) {
-  //  std::cout << "Fixed precision power iteration, " << i << " iterations" << std::endl;
-  //}
 
   return std::make_tuple(new_result, i, done);
 }

@@ -18,7 +18,7 @@ IF (OPENMP_FOUND)
     SET (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 ENDIF()
 
-ADD_EXECUTABLE(code spmv.h)
+ADD_EXECUTABLE(code spmv.h performance_tests.h)
 
 TARGET_SOURCES(code PRIVATE main.cpp power_iteration.cpp power_iteration.h communication.cpp communication.h)
 
