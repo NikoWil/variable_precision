@@ -119,7 +119,7 @@ void measure_performance(std::mt19937 rng, unsigned rank, unsigned comm_size) {
       for (unsigned index = 0u; index < 30u; ++index) {
         CSR matrix = CSR::unit(0);
         if (rank == 0) {
-          matrix = CSR::symmetric(matrix_size, density, rng);
+          matrix = CSR::diagonally_dominant(matrix_size, density, rng);
         }
         auto matrix_slice = distribute_matrix(matrix, MPI_COMM_WORLD, 0);
 

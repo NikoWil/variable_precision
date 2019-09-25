@@ -24,9 +24,4 @@ void spmv(const CSR& matrix, const std::vector<Double_slice<0, end>>& x, OutputI
     *(begin + row) = Double_slice<0, end>{sum};
   }
 }
-/**
-template <int length, class OutputIt>
-void spmv_char(const CSR& matrix, const std::vector<unsigned char>& x, OutputIt begin, OutputIt last) {
-
-}*/
 #endif // CODE_SPMV_H
