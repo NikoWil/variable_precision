@@ -34,6 +34,8 @@ explicit CSR(const std::vector<double>& values, const std::vector<int>& colidx, 
     assert(static_cast<size_t>(rowptr.back()) == values.size() && "CSR rowptr last element must point at element after colidx/ values");
   }
 
+CSR() : m_values{}, m_colidx{}, m_rowptr{0}, m_num_cols{0} {}
+
 std::vector<double> spmv(const std::vector<double>& x) const;
 
 static CSR empty();
@@ -41,6 +43,9 @@ static CSR empty();
 static CSR unit(unsigned n);
 
 static CSR diagonally_dominant(unsigned n, double density, std::mt19937 rng);
+
+static CSR diagonally_dominant_slice(unsigned n, double density,
+    std::mt19937 rng, unsigned first_row, unsigned last_row);
 
 static CSR random(unsigned width, unsigned height, double density, std::mt19937 rng);
 

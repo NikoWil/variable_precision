@@ -6,10 +6,9 @@
 
 #include "communication.h"
 #include "matrix_formats/csr.hpp"
+#include "performance_tests.h"
 #include "power_iteration.h"
-#include "segmentation/segmentation.h"
 #include "segmentation_char/segmentation_char.h"
-#include "spmv.h"
 #include "util/util.hpp"
 
 void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size);
@@ -31,9 +30,37 @@ int main(int argc, char* argv[]) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 
-  std::cout << std::setprecision(20);
+  std::cout << std::setprecision(4);
 
-  power_iteration_tests(rng, rank, comm_size);
+  perf_test::spmv_single_node();
+  /*
+  constexpr int end{4};
+  using slice = Double_slice<0, end>;
+  std::vector<slice> sendbuf;
+  std::vector<slice> recvbuf{6, slice{0.}};
+  std::vector<int> rowcnt{2, 4};
+
+  if (rank == 0) {
+    sendbuf.emplace_back(1);
+    sendbuf.emplace_back(2);
+  } else {
+    sendbuf.emplace_back(3);
+    sendbuf.emplace_back(4);
+    sendbuf.emplace_back(5);
+    sendbuf.emplace_back(6);
+  }
+  custom_alltoallv(sendbuf, rowcnt, recvbuf, MPI_COMM_WORLD);
+
+  for (int i = 0; i < comm_size; ++i) {
+    if (i == rank) {
+      std::cout << "rank " << i << ": ";
+      for (const auto& e : recvbuf) {
+        std::cout << e.to_double() << " ";
+      }
+      std::cout << "\n";
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+  }*/
 
   MPI_Finalize();
   return 0;
@@ -61,7 +88,6 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
   if (rank == 0) {
     for (unsigned i = 0; i < matrix_slice.num_cols(); ++i) {
       x.at(i) = distribution(rng);
-      //x.at(i) = 1;
     }
   }
   auto square_sum = std::accumulate(x.begin(), x.end(), 0., [](double curr, double d){ return curr + d * d; });

@@ -14,6 +14,7 @@ template <int end, class OutputIt>
 void spmv(const CSR& matrix, const std::vector<Double_slice<0, end>>& x, OutputIt begin, OutputIt last) {
   assert(x.size() == matrix.num_cols() && "Wrong dimension of x in A*x (CSR)");
   assert(std::distance(begin, last) == matrix.num_rows());
+  static_cast<void>(last);
 
   #pragma omp parallel for default(none) shared(x, begin, last, matrix)
   for (unsigned long row = 0; row < matrix.rowptr().size() - 1; row++) {

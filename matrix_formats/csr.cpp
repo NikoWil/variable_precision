@@ -84,6 +84,54 @@ CSR CSR::diagonally_dominant(unsigned n, double density, std::mt19937 rng) {
   return CSR{values, colidx, rowptr, n};
 }
 
+CSR CSR::diagonally_dominant_slice(unsigned n, double density, std::mt19937 rng,
+    unsigned first_row, unsigned last_row) {
+  assert(density * n >= 1 && "CSR::diagonally_dominant_slice Matrix needs at least 1 element per row");
+  assert(first_row <= last_row && "CSR::diagonally_dominant_slice First row <= last_row required");
+  assert(last_row < n && "CSR::diagonally_dominant_slice last_row must still be in valid range");
+
+  constexpr unsigned lower = 1;
+  constexpr unsigned upper = 10000;
+  static_assert(lower < upper, "");
+
+  std::uniform_int_distribution<> index_distrib(0, n - 1);
+  std::uniform_real_distribution<> value_distrib(lower, upper);
+  // TODO: more variety in the diagonal?
+  std::uniform_real_distribution<> diag_distrib(n * upper + 1, n * (lower + upper) + 1);
+
+  std::vector<double> values;
+  std::vector<int> colidx;
+  std::vector<int> rowptr;
+  rowptr.push_back(0);
+  // construct all the rows
+  for (unsigned row = first_row; row <= last_row; ++row) {
+    std::vector<double> row_values{};
+    // values for 1 row
+    for (unsigned k = 0; k < density * n; ++k) {
+      row_values.push_back(value_distrib(rng) + 0.0625);
+    }
+
+    std::set<int> colidx_set{};
+    colidx_set.insert(row);
+    while (colidx_set.size() < density * n) {
+      colidx_set.insert(index_distrib(rng));
+    }
+    std::vector<int> row_colidx(colidx_set.size());
+    std::copy(std::begin(colidx_set), std::end(colidx_set), std::begin(row_colidx));
+
+    // insert diagonal dominant element
+    auto diag_index = std::distance(std::begin(row_colidx), std::find(std::begin(row_colidx), std::end(row_colidx), row));
+    row_values.at(diag_index) = diag_distrib(rng);
+
+    // update matrix
+    values.insert(std::end(values), std::begin(row_values), std::end(row_values));
+    colidx.insert(std::end(colidx), std::begin(row_colidx), std::end(row_colidx));
+    rowptr.push_back(values.size());
+  }
+
+  return CSR{values, colidx, rowptr, n};
+}
+
 CSR CSR::random(unsigned width, unsigned height, double density, std::mt19937 rng) {
   assert(width > 0 && "CSR::random Matrix width needs to be > 1");
   assert(height > 0 && "CSR::random Matrix height needs to be > 1");
@@ -109,7 +157,7 @@ CSR CSR::random(unsigned width, unsigned height, double density, std::mt19937 rn
 
   std::vector<double> values;
   std::vector<int> colidx;
-  std::vector<int> rowptr;
+  std::vector<int> rowptr{0};
   for (unsigned row = 0; row < height; ++row) {
     for (unsigned col = 0; col < width; ++col) {
       const auto pot_val = value_matrix.at(row).at(col);
