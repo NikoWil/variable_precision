@@ -144,10 +144,10 @@ CSR CSR::random(unsigned width, unsigned height, double density, std::mt19937 rn
   std::uniform_real_distribution<> value_distrib(0.001, 100'000.);
 
   unsigned num_values{0};
-  while (width * height * density < num_values) {
+  while (width * height * density > num_values) {
     auto x = x_distrib(rng);
     auto y = y_distrib(rng);
-    if (value_matrix.at(y).at(x) == 0.) {
+    if (value_matrix.at(y).at(x) != 0) {
       continue;
     }
     auto val = value_distrib(rng);

@@ -30,44 +30,18 @@ int main(int argc, char* argv[]) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 
-  std::cout << std::setprecision(4);
-
-  perf_test::spmv_single_node();
-  /*
-  constexpr int end{4};
-  using slice = Double_slice<0, end>;
-  std::vector<slice> sendbuf;
-  std::vector<slice> recvbuf{6, slice{0.}};
-  std::vector<int> rowcnt{2, 4};
-
   if (rank == 0) {
-    sendbuf.emplace_back(1);
-    sendbuf.emplace_back(2);
-  } else {
-    sendbuf.emplace_back(3);
-    sendbuf.emplace_back(4);
-    sendbuf.emplace_back(5);
-    sendbuf.emplace_back(6);
+    const auto matrix = CSR::random(5, 5, 0.5, rng);
+    std::cout << matrix.num_values() << std::endl;
+    matrix.print();
   }
-  custom_alltoallv(sendbuf, rowcnt, recvbuf, MPI_COMM_WORLD);
-
-  for (int i = 0; i < comm_size; ++i) {
-    if (i == rank) {
-      std::cout << "rank " << i << ": ";
-      for (const auto& e : recvbuf) {
-        std::cout << e.to_double() << " ";
-      }
-      std::cout << "\n";
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-  }*/
 
   MPI_Finalize();
   return 0;
 }
 
 void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) {
-  const int matrix_rows = 3;
+  const int matrix_rows = 4;
   const double density = 0.5;
   if (rank == 0) {
     std::cout << "matrix rows: " << matrix_rows << "\n";
@@ -106,12 +80,13 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
 
   if (rank == 0) {
     auto result_simple = power_iteration(matrix, x);
+    std::cout << "Simple Power Iteration\n";
     print_vector(result_simple.first, "simple power iteration");
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
-  constexpr int end = 0;
-  std::vector<Double_slice<0, end>> x_slice;
+  constexpr int end = 4;
+  std::vector<seg::Double_slice<0, end>> x_slice;
   for (const auto v : x) {
     x_slice.emplace_back(v);
   }
@@ -120,12 +95,13 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
     auto res_vector = std::get<0>(seg_result);
     auto iter_count = std::get<1>(seg_result);
     auto done = std::get<2>(seg_result);
-    std::cout << "Segmented result: ";
+    std::cout << "Segmented:\n";
+    std::cout << "Result: \n";
     for (const auto& s : res_vector) {
       std::cout << s.to_double() << " ";
     }
     std::cout << std::endl;
-    std::cout << "Iter_count: " << iter_count << ", done: " << done << std::endl;
+    std::cout << "Iter_count: " << iter_count << ", done: " << done << "\n\n";
   }
 
   auto var_result = power_iteration_variable(matrix_slice, x, rowcnt, MPI_COMM_WORLD);

@@ -199,8 +199,8 @@ std::tuple<std::vector<double>, unsigned, bool> power_iteration_fixed(const CSR&
 }
 
 template <int end_1, int end_2>
-std::vector<Double_slice<0, end_2>> convert_slice_vector(const std::vector<Double_slice<0, end_1>>& v) {
-  std::vector<Double_slice<0, end_2>> new_vec;
+std::vector<seg::Double_slice<0, end_2>> convert_slice_vector(const std::vector<seg::Double_slice<0, end_1>>& v) {
+  std::vector<seg::Double_slice<0, end_2>> new_vec;
   new_vec.reserve(v.size());
   for (const auto& ds : v) {
     new_vec.emplace_back(ds.to_double());
@@ -210,8 +210,9 @@ std::vector<Double_slice<0, end_2>> convert_slice_vector(const std::vector<Doubl
 }
 
 template <int end>
-std::vector<Double_slice<0, end>> convert_slice_vector(const std::vector<double>& v) {
-  std::vector<Double_slice<0, end>> new_vec;
+std::vector<seg::Double_slice<0, end>> convert_slice_vector(
+    const std::vector<double>& v) {
+  std::vector<seg::Double_slice<0, end>> new_vec;
   new_vec.reserve(v.size());
   for (const auto& ds : v) {
     new_vec.emplace_back(ds);

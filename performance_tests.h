@@ -14,8 +14,8 @@
 namespace {
 
 template <int n>
-std::vector<Double_slice<0, n>> to_slice_vector(const std::vector<double> &v) {
-  std::vector<Double_slice<0, n>> new_vec;
+std::vector<seg::Double_slice<0, n>> to_slice_vector(const std::vector<double> &v) {
+  std::vector<seg::Double_slice<0, n>> new_vec;
   new_vec.reserve(v.size());
 
   for (const auto e : v) {
@@ -33,10 +33,11 @@ void print_result(int slice_length, unsigned width, unsigned height,
 }
 
 template <int end_idx>
-void spmv_slice(const CSR &matrix, const std::vector<double> &x,
+void time_spmv_slice(const CSR &matrix, const std::vector<double> &x,
                 double density) {
+  using slice_type = seg::Double_slice<0, end_idx>;
   auto slice_vec = to_slice_vector<end_idx>(x);
-  std::vector<Double_slice<0, end_idx>> result_vec(matrix.num_rows());
+  std::vector<slice_type> result_vec(matrix.num_rows());
 
   double sum{0};
   for (int i{0}; i < 50; ++i) {
@@ -95,18 +96,23 @@ void spmv_single_node() {
                   .count());
         }
 
-        spmv_slice<0>(matrix, x, density);
-        spmv_slice<1>(matrix, x, density);
-        spmv_slice<2>(matrix, x, density);
-        spmv_slice<3>(matrix, x, density);
-        spmv_slice<4>(matrix, x, density);
-        spmv_slice<5>(matrix, x, density);
-        spmv_slice<6>(matrix, x, density);
-        spmv_slice<7>(matrix, x, density);
+        time_spmv_slice<0>(matrix, x, density);
+        time_spmv_slice<1>(matrix, x, density);
+        time_spmv_slice<2>(matrix, x, density);
+        time_spmv_slice<3>(matrix, x, density);
+        time_spmv_slice<4>(matrix, x, density);
+        time_spmv_slice<5>(matrix, x, density);
+        time_spmv_slice<6>(matrix, x, density);
+        time_spmv_slice<7>(matrix, x, density);
       }
       std::cout << "IGNORE sum " << sum << std::endl;
     }
   }
+}
+
+void power_iteration_segmented_test() {
+  // generate matrices: different size, density
+  //
 }
 
 }
