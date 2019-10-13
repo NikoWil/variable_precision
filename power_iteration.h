@@ -111,13 +111,13 @@ std::tuple<std::vector<seg::Double_slice<0, end>>, int, bool>
                        char_recvdispls.data(), MPI_BYTE, comm);
       } else {
         // aggregate vector<char> with only those bytes
-        constexpr int local_num_bytes =
-            partial_result.size() * (slice_size - local_max_index);
+        const int local_num_bytes = partial_result.size()
+            * (slice_size - local_max_index);
         std::vector<unsigned char> local_changed_bytes;
         local_changed_bytes.reserve(local_num_bytes);
         // TODO: copy of bytes as constexpr?
 
-        for (const auto ds : partial_result) {
+        for (auto ds : partial_result) {
           local_changed_bytes.insert(local_changed_bytes.end(),
               ds.get_bytes() + local_max_index, ds.get_bytes() + slice_size);
         }
@@ -156,7 +156,7 @@ std::tuple<std::vector<seg::Double_slice<0, end>>, int, bool>
           for (int k{0}; k < rowcnt.at(p); ++k) {
             // index avoids asking for recvdispls.at(comm_size)
             const auto index = k + offset;
-            const auto first = changed_bytes.at(k * chg_bytes_cnt + changed_bytes_displs.at(p));
+            const auto first = changed_bytes.data() + k * chg_bytes_cnt + changed_bytes_displs.at(p);
             const auto last = first + chg_bytes_cnt;
             const auto out = new_result.at(index).get_bytes() + m;
             std::copy(first, last, out);

@@ -6,6 +6,7 @@
 #define CODE_PERFORMANCE_TESTS_H
 
 #include <chrono>
+#include <iostream>
 
 #include "matrix_formats/csr.hpp"
 #include "segmentation_char.h"

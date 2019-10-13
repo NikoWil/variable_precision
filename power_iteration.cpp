@@ -246,10 +246,12 @@ std::vector<double> power_iteration_variable(const CSR& matrix_slice,
   const auto guess_7 = convert_slice_vector<5, 6>(std::get<0>(result_6));
   const auto result_7 = power_iteration_segmented(matrix_slice, guess_7, rowcnt, comm, iter_limit);
 
-  const auto guess_8 = convert_slice_vector<6, 7>(std::get<0>(result_7));
-  const auto result_8 = power_iteration_segmented(matrix_slice, guess_8, rowcnt, comm, iter_limit);
+  // TODO: reactivate with implementation of get_bytes for Double_slice<0, 7>
+  //const auto guess_8 = convert_slice_vector<6, 7>(std::get<0>(result_7));
+  //const auto result_8 = power_iteration_segmented(matrix_slice, guess_8, rowcnt, comm, iter_limit);
 
-  const auto& slice_result = std::get<0>(result_8);
+  // TODO: take result8 instead of result7
+  const auto& slice_result = std::get<0>(result_7);
 
   std::vector<double> result;
   result.reserve(slice_result.size());

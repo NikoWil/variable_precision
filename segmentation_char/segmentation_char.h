@@ -128,7 +128,7 @@ template <int start, int end> struct Double_slice {
     return Compare_helper<0, end - start + 1>::compare(bytes, other.bytes);
   }
 
-  constexpr unsigned char* get_bytes() const {
+  constexpr unsigned char* get_bytes() {
     return bytes;
   }
 
