@@ -128,9 +128,7 @@ template <int start, int end> struct Double_slice {
     return Compare_helper<0, end - start + 1>::compare(bytes, other.bytes);
   }
 
-  constexpr unsigned char* get_bytes() {
-    return bytes;
-  }
+  constexpr unsigned char *get_bytes() { return bytes; }
 
   void print_bytes() const {
     for (auto b : bytes) {
@@ -164,7 +162,7 @@ public:
   void print_bytes() const {
     Segmentation seg{d};
     for (auto c : seg.c) {
-      std::cout << (+c & 0xFF) << " ";
+      std::cout << (c & 0xFF) << " ";
     }
     std::cout << std::endl;
   }

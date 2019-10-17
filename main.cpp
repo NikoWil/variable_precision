@@ -30,11 +30,7 @@ int main(int argc, char* argv[]) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 
-  if (rank == 0) {
-    const auto matrix = CSR::random(5, 5, 0.5, rng);
-    std::cout << matrix.num_values() << std::endl;
-    matrix.print();
-  }
+  perf_test::spmv_single_node();
 
   MPI_Finalize();
   return 0;
@@ -79,7 +75,7 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
   }
 
   if (rank == 0) {
-    auto result_simple = power_iteration(matrix, x);
+    auto result_simple = local::power_iteration(matrix, x);
     std::cout << "Simple Power Iteration\n";
     print_vector(result_simple.first, "simple power iteration");
   }
@@ -90,7 +86,7 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
   for (const auto v : x) {
     x_slice.emplace_back(v);
   }
-  auto seg_result = power_iteration_segmented<end>(matrix_slice, x_slice, rowcnt, MPI_COMM_WORLD);
+  auto seg_result = segmented::power_iteration<end>(matrix_slice, x_slice, rowcnt, MPI_COMM_WORLD);
   if (rank == 0) {
     auto res_vector = std::get<0>(seg_result);
     auto iter_count = std::get<1>(seg_result);
@@ -104,7 +100,7 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
     std::cout << "Iter_count: " << iter_count << ", done: " << done << "\n\n";
   }
 
-  auto var_result = power_iteration_variable(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
+  auto var_result = variable::power_iteration(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
   if (rank == 0) {
     print_vector(var_result, "var_result");
   }
@@ -148,7 +144,7 @@ void measure_performance(std::mt19937 rng, unsigned rank, unsigned comm_size) {
 
         for (unsigned k = 0u; k < 20u; ++k) {
           auto start = std::chrono::high_resolution_clock::now();
-          auto result = power_iteration(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
+          auto result = simple_seg::power_iteration(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
           auto end = std::chrono::high_resolution_clock::now();
 
           int precision_switch = std::get<1>(result);
@@ -170,7 +166,7 @@ void measure_performance(std::mt19937 rng, unsigned rank, unsigned comm_size) {
 
         for (unsigned k = 0u; k < 20u; ++k) {
           auto start = std::chrono::high_resolution_clock::now();
-          auto result = power_iteration_fixed(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
+          auto result = fixed::power_iteration(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
           auto end = std::chrono::high_resolution_clock::now();
 
           unsigned iterations = std::get<1>(result);

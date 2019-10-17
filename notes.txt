@@ -1,22 +1,70 @@
-GCC & Clang support type punning via unions (citation?)
+if (only_changed) {
+      // TODO: send only those bytes that have been changed in this iteration
+      // determine changed bytes
+      const unsigned row_offset = recvdispls.at(rank);
+      int local_max_index{slice_size};
+      for (int k{0}; k < partial_result.size(); ++k) {
+        local_max_index = std::max(
+            local_max_index,
+            partial_result.at(k).compare_bytes(new_result.at(row_offset + k)));
+      }
+      if (local_max_index == slice_size) {
+        // All Bytes are different, just send full doubles
+        MPI_Allgatherv(partial_result.data(), char_sendcnts.at(rank), MPI_BYTE,
+                       new_result.data(), char_recvcnt.data(),
+                       char_recvdispls.data(), MPI_BYTE, comm);
+      } else {
+        // aggregate vector<char> with only those bytes
+        const int local_num_bytes = partial_result.size()
+            * (slice_size - local_max_index);
+        std::vector<unsigned char> local_changed_bytes;
+        local_changed_bytes.reserve(local_num_bytes);
+        // TODO: copy of bytes as constexpr?
 
-simple:
-union {
-  double,
-  uint_64t
-}
-double from head: create union, put uint_32t in, shift 32 bits to left
-head from double: create union, get uint_64t, shift 32 bits right
+        for (auto ds : partial_result) {
+          local_changed_bytes.insert(local_changed_bytes.end(),
+              ds.get_bytes() + local_max_index, ds.get_bytes() + slice_size);
+        }
 
-General copy:
-  templated union, with number of segments, size per segment?, ???
-  assert: total size of segments <= sizeof double
-    is smaller allowed?
-    
-General:
-  only transform types for sending, to keep the rest of the code free from strange types
-  assume same endianness
-  compile time adjustment to endianness that was found on the machine?
-    -> assume same CPU (architecture) everywhere
-      what is the endianness of x86?
-  openMP to parallelize SpmV, to avoid being CPU bound
+        // MPI_Allgather to distribute the number of bytes
+        //std::vector<int> num_bytes(comm_size);
+        std::vector<int> max_index(comm_size);
+        MPI_Allgather(&local_max_index, 1, MPI_INT, max_index.data(),
+            1, MPI_INT, comm);
+
+        std::vector<int> num_bytes;
+        for (unsigned k{0}; k < comm_size; ++k) {
+          const auto chg_bytes_cnt = slice_size - max_index.at(k);
+          num_bytes.push_back(rowcnt.at(k) * chg_bytes_cnt);
+        }
+
+        const int total_bytes = std::accumulate(num_bytes.begin(), num_bytes.end(), 0);
+        std::vector<unsigned char> changed_bytes(total_bytes);
+
+        std::vector<int> changed_bytes_displs(rowcnt.size());
+        changed_bytes_displs.at(0) = 0;
+        // TODO: is this okay?
+        std::partial_sum(num_bytes.begin(), num_bytes.end() - 1, changed_bytes_displs.begin() + 1);
+
+        // Do MPI_Allgatherv on the bytes
+        MPI_Allgatherv(local_changed_bytes.data(), num_bytes.at(rank), MPI_BYTE,
+            changed_bytes.data(), num_bytes.data(), changed_bytes_displs.data(),
+            MPI_BYTE, comm);
+
+        // insert the new bytes as needed into new_result
+        for (unsigned p{0}; p < comm_size; ++p) {
+          const auto m = max_index.at(p);
+          const auto chg_bytes_cnt = slice_size - max_index.at(p);
+          const auto offset = recvdispls.at(p);
+
+          for (int k{0}; k < rowcnt.at(p); ++k) {
+            // index avoids asking for recvdispls.at(comm_size)
+            const auto index = k + offset;
+            const auto first = changed_bytes.data() + k * chg_bytes_cnt + changed_bytes_displs.at(p);
+            const auto last = first + chg_bytes_cnt;
+            const auto out = new_result.at(index).get_bytes() + m;
+            std::copy(first, last, out);
+          }
+        }
+      }
+    }
