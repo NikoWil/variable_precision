@@ -83,7 +83,7 @@ simple_seg::power_iteration(const CSR &matrix_slice,
   const std::vector<int> sendcounts(comm_size, rowcnt.at(rank));
   const std::vector<int> sdispls(comm_size, 0);
 
-  int precision_switch = -1;
+  unsigned precision_switch = -1;
 
   bool half_precision = true;
   bool done = false;
@@ -221,6 +221,7 @@ fixed::power_iteration(const CSR &matrix_slice, const std::vector<double> &x,
   return std::make_tuple(new_result, i, done);
 }
 
+namespace {
 template <int end_1, int end_2>
 std::vector<seg::Double_slice<0, end_2>>
 convert_slice_vector(const std::vector<seg::Double_slice<0, end_1>> &v) {
@@ -244,45 +245,65 @@ convert_slice_vector(const std::vector<double> &v) {
 
   return new_vec;
 }
+}
 
-std::vector<double> variable::power_iteration(const CSR &matrix_slice,
-                                              const std::vector<double> &x,
-                                              const std::vector<int> &rowcnt,
-                                              MPI_Comm comm, int iter_limit) {
+std::tuple<std::vector<double>, std::vector<unsigned>, std::vector<bool>>
+variable::power_iteration_eigth(const CSR &matrix_slice,
+                                const std::vector<double> &x,
+                                const std::vector<int> &rowcnt, MPI_Comm comm,
+                                int iteration_limit) {
+  std::vector<unsigned> iterations;
+  std::vector<bool> done;
+
   const auto guess_1 = convert_slice_vector<0>(x);
   const auto result_1 = segmented::power_iteration(matrix_slice, guess_1,
-                                                   rowcnt, comm, iter_limit);
+                                                   rowcnt, comm, iteration_limit);
+  iterations.push_back(std::get<1>(result_1));
+  done.push_back(std::get<2>(result_1));
 
   const auto guess_2 = convert_slice_vector<0, 1>(std::get<0>(result_1));
   const auto result_2 = segmented::power_iteration(matrix_slice, guess_2,
-                                                   rowcnt, comm, iter_limit);
+                                                   rowcnt, comm, iteration_limit);
+  iterations.push_back(std::get<1>(result_2));
+  done.push_back(std::get<2>(result_2));
 
   const auto guess_3 = convert_slice_vector<1, 2>(std::get<0>(result_2));
   const auto result_3 = segmented::power_iteration(matrix_slice, guess_3,
-                                                   rowcnt, comm, iter_limit);
+                                                   rowcnt, comm, iteration_limit);
+  iterations.push_back(std::get<1>(result_3));
+  done.push_back(std::get<2>(result_3));
 
   const auto guess_4 = convert_slice_vector<2, 3>(std::get<0>(result_3));
   const auto result_4 = segmented::power_iteration(matrix_slice, guess_4,
-                                                   rowcnt, comm, iter_limit);
+                                                   rowcnt, comm, iteration_limit);
+  iterations.push_back(std::get<1>(result_4));
+  done.push_back(std::get<2>(result_4));
 
   const auto guess_5 = convert_slice_vector<3, 4>(std::get<0>(result_4));
   const auto result_5 = segmented::power_iteration(matrix_slice, guess_5,
-                                                   rowcnt, comm, iter_limit);
+                                                   rowcnt, comm, iteration_limit);
+  iterations.push_back(std::get<1>(result_5));
+  done.push_back(std::get<2>(result_5));
 
   const auto guess_6 = convert_slice_vector<4, 5>(std::get<0>(result_5));
   const auto result_6 = segmented::power_iteration(matrix_slice, guess_6,
-                                                   rowcnt, comm, iter_limit);
+                                                   rowcnt, comm, iteration_limit);
+  iterations.push_back(std::get<1>(result_6));
+  done.push_back(std::get<2>(result_6));
 
   const auto guess_7 = convert_slice_vector<5, 6>(std::get<0>(result_6));
   const auto result_7 = segmented::power_iteration(matrix_slice, guess_7,
-                                                   rowcnt, comm, iter_limit);
+                                                   rowcnt, comm, iteration_limit);
+  iterations.push_back(std::get<1>(result_7));
+  done.push_back(std::get<2>(result_7));
 
-  // TODO: reactivate with implementation of get_bytes for Double_slice<0, 7>
-  // const auto guess_8 = convert_slice_vector<6, 7>(std::get<0>(result_7));
-  // const auto result_8 = power_iteration_segmented(matrix_slice, guess_8, rowcnt, comm, iter_limit);
+  const auto guess_8 = convert_slice_vector<6, 7>(std::get<0>(result_7));
+  const auto result_8 = segmented::power_iteration(matrix_slice, guess_8,
+                                                   rowcnt, comm, iteration_limit);
+  iterations.push_back(std::get<1>(result_8));
+  done.push_back(std::get<2>(result_8));
 
-  // TODO: take result8 instead of result7
-  const auto &slice_result = std::get<0>(result_7);
+  const auto &slice_result = std::get<0>(result_8);
 
   std::vector<double> result;
   result.reserve(slice_result.size());
@@ -290,5 +311,79 @@ std::vector<double> variable::power_iteration(const CSR &matrix_slice,
     result.push_back(ds.to_double());
   }
 
-  return result;
+  return std::make_tuple(result, iterations, done);
+}
+
+std::tuple<std::vector<double>, std::vector<unsigned>, std::vector<bool>>
+variable::power_iteration_quarter(const CSR &matrix_slice,
+                                  const std::vector<double> &x,
+                                  const std::vector<int> &rowcnt, MPI_Comm comm,
+                                  int iter_limit) {
+  std::vector<unsigned> iterations;
+  std::vector<bool> done;
+
+  const auto guess_1 = convert_slice_vector<1>(x);
+  const auto result_1 = segmented::power_iteration(matrix_slice, guess_1,
+                                                   rowcnt, comm, iter_limit);
+  iterations.push_back(std::get<1>(result_1));
+  done.push_back(std::get<2>(result_1));
+
+  const auto guess_2 = convert_slice_vector<1, 3>(std::get<0>(result_1));
+  const auto result_2 = segmented::power_iteration(matrix_slice, guess_2,
+                                                   rowcnt, comm, iter_limit);
+  iterations.push_back(std::get<1>(result_2));
+  done.push_back(std::get<2>(result_2));
+
+  const auto guess_3 = convert_slice_vector<3, 5>(std::get<0>(result_2));
+  const auto result_3 = segmented::power_iteration(matrix_slice, guess_3,
+                                                   rowcnt, comm, iter_limit);
+  iterations.push_back(std::get<1>(result_3));
+  done.push_back(std::get<2>(result_3));
+
+  const auto guess_4 = convert_slice_vector<5, 7>(std::get<0>(result_3));
+  const auto result_4 = segmented::power_iteration(matrix_slice, guess_4,
+                                                   rowcnt, comm, iter_limit);
+  iterations.push_back(std::get<1>(result_4));
+  done.push_back(std::get<2>(result_4));
+
+  const auto &slice_result = std::get<0>(result_4);
+
+  std::vector<double> result;
+  result.reserve(slice_result.size());
+  for (const auto &ds : slice_result) {
+    result.push_back(ds.to_double());
+  }
+
+  return std::make_tuple(result, iterations, done);
+}
+
+std::tuple<std::vector<double>, std::vector<unsigned>, std::vector<bool>>
+variable::power_iteration_half(const CSR &matrix_slice,
+                               const std::vector<double> &x,
+                               const std::vector<int> &rowcnt, MPI_Comm comm,
+                               int iter_limit) {
+  std::vector<unsigned> iterations;
+  std::vector<bool> done;
+
+  const auto guess_1 = convert_slice_vector<3>(x);
+  const auto result_1 = segmented::power_iteration(matrix_slice, guess_1,
+                                                   rowcnt, comm, iter_limit);
+  iterations.push_back(std::get<1>(result_1));
+  done.push_back(std::get<2>(result_1));
+
+  const auto guess_2 = convert_slice_vector<3, 7>(std::get<0>(result_1));
+  const auto result_2 = segmented::power_iteration(matrix_slice, guess_2,
+                                                   rowcnt, comm, iter_limit);
+  iterations.push_back(std::get<1>(result_2));
+  done.push_back(std::get<2>(result_2));
+
+  const auto &slice_result = std::get<0>(result_2);
+
+  std::vector<double> result;
+  result.reserve(slice_result.size());
+  for (const auto &ds : slice_result) {
+    result.push_back(ds.to_double());
+  }
+
+  return std::make_tuple(result, iterations, done);
 }

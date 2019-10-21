@@ -46,12 +46,31 @@ namespace variable {
 /**
  * Perform variable precision power iteration, by chaining calls to
  * segmented::power_iteration<0>, ..., segmented::power_iteration<7>
+ * in 1-Byte steps
  */
-std::vector<double> power_iteration(const CSR &matrix_slice,
-                                             const std::vector<double> &x,
-                                             const std::vector<int> &rowcnt,
-                                             MPI_Comm comm,
-                                             int iteration_limit = 1000);
+std::tuple<std::vector<double>, std::vector<unsigned>, std::vector<bool>>
+power_iteration_eigth(const CSR &matrix_slice, const std::vector<double> &x,
+                      const std::vector<int> &rowcnt, MPI_Comm comm,
+                      int iteration_limit = 1000);
+
+/**
+ * Perform variable precision power iteration, by chaining calls to
+ * segmented::power_iteration<1>, ..., segmented::power_iteration<7>
+ * in 2-Byte steps
+ */
+std::tuple<std::vector<double>, std::vector<unsigned>, std::vector<bool>>
+power_iteration_quarter(const CSR &matrix_slice, const std::vector<double> &x,
+                        const std::vector<int> &rowcnt, MPI_Comm comm,
+                        int iteration_limit = 1000);
+
+/**
+ * Perform variable precision power iteration, by chaining calls to
+ * segmented::power_iteration<3> and segmented::power_iteration<7>
+ */
+std::tuple<std::vector<double>, std::vector<unsigned>, std::vector<bool>>
+power_iteration_half(const CSR &matrix_slice, const std::vector<double> &x,
+                     const std::vector<int> &rowcnt, MPI_Comm comm,
+                     int iteration_limit = 1000);
 }
 
 namespace segmented {

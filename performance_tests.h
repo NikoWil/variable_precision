@@ -6,9 +6,11 @@
 #define CODE_PERFORMANCE_TESTS_H
 
 #include <chrono>
+#include <cmath>
 #include <iostream>
 
 #include "matrix_formats/csr.hpp"
+#include "power_iteration.h"
 #include "segmentation_char.h"
 #include "spmv.h"
 
@@ -128,8 +130,127 @@ void spmv_single_node() {
   }
 }
 
-void power_iteration_segmented_test() {
-  
+void power_iteration_segmented(MPI_Comm comm) {
+  std::mt19937 rng{std::random_device{}()};
+
+  int comm_size, rank;
+  MPI_Comm_size(comm, &comm_size);
+  MPI_Comm_rank(comm, &rank);
+
+  const auto max_size = 10;//(1u << 28u) * static_cast<unsigned>(sqrt(comm_size));
+  const auto min_size = 5;//static_cast<unsigned>(max_size / 64);
+  constexpr unsigned min_density_fac = 4;
+  constexpr unsigned max_density_fac = 5;//5 + 1;
+  constexpr unsigned num_tests = 2;//15;
+
+  const auto print_fixed =
+      [](const std::string &mode,
+         const std::tuple<std::vector<double>, unsigned, bool> &result,
+         const auto time) {
+        std::cout << mode << " " << std::get<1>(result) << " "
+                  << std::get<2>(result) << " " << time << "\n";
+      };
+
+  const auto print_variable =
+      [](const std::string &mode,
+         const std::tuple<std::vector<double>, std::vector<unsigned>,
+                          std::vector<bool>> &result,
+         const auto time) {
+        std::cout << mode << " ";
+        for (const auto e : std::get<1>(result)) {
+          std::cout << e << " ";
+        }
+        for (const auto e : std::get<2>(result)) {
+          std::cout << e << " ";
+        }
+        std::cout << time << "\n";
+      };
+
+  for (auto size{min_size}; size < max_size + 1; size *= 2) {
+    for (auto density_fac{min_density_fac}; density_fac < max_density_fac;
+         ++density_fac) {
+      std::vector<int> rowcnt;
+      for (int i{0}; i < comm_size; ++i) {
+        unsigned start = (size * i) / comm_size;
+        unsigned end = (size * (i + 1)) / comm_size;
+        rowcnt.push_back(end - start);
+      }
+
+      std::vector<int> start_row{0};
+      for (size_t i{0}; i < rowcnt.size(); ++i) {
+        const auto next = rowcnt.at(i) + start_row.back();
+        start_row.push_back(next);
+      }
+
+      std::uniform_real_distribution<> distribution{1, 100};
+      std::vector<double> x;
+      x.resize(size);
+      if (rank == 0) {
+        for (size_t i = 0; i < x.size(); ++i) {
+          x.at(i) = distribution(rng);
+        }
+
+        auto square_sum =
+            std::accumulate(x.begin(), x.end(), 0.,
+                            [](double curr, double d) { return curr + d * d; });
+        auto norm_fac = sqrt(square_sum);
+        std::for_each(x.begin(), x.end(),
+                      [norm_fac](double &d) { d /= norm_fac; });
+      }
+
+      MPI_Bcast(x.data(), x.size(), MPI_DOUBLE, 0, comm);
+      std::cout << "x distributed" << std::endl;
+
+      const double density = 0.1 * density_fac;
+      const auto &matrix = CSR::diagonally_dominant_slice(
+          size, density, rng, start_row.at(rank), start_row.at(rank + 1) - 1);
+
+      std::cout << "matrix created" << matrix.rowptr()[0] << std::endl;
+      if (rank == 0) {
+        std::cout << "parameters: " << size << " " << density << " "
+                  << matrix.num_values() << "\n";
+      }
+      for (unsigned i{0}; i < num_tests; ++i) {
+        using namespace std::chrono;
+
+        auto start_fixed = high_resolution_clock::now();
+        const auto result_fixed =
+            fixed::power_iteration(matrix, x, rowcnt, comm);
+        auto end_fixed = high_resolution_clock::now();
+
+        auto start_1 = high_resolution_clock::now();
+        const auto result_1 =
+            variable::power_iteration_eigth(matrix, x, rowcnt, comm);
+        auto end_1 = high_resolution_clock::now();
+
+        auto start_2 = high_resolution_clock::now();
+        const auto result_2 =
+            variable::power_iteration_quarter(matrix, x, rowcnt, comm);
+        auto end_2 = high_resolution_clock::now();
+
+        auto start_3 = high_resolution_clock::now();
+        const auto result_3 =
+            variable::power_iteration_half(matrix, x, rowcnt, comm);
+        auto end_3 = high_resolution_clock::now();
+
+        if (rank == 0) {
+          print_fixed(
+              "fixed", result_fixed,
+              duration_cast<nanoseconds>(end_fixed - start_fixed).count());
+          print_variable("eigths", result_1,
+                         duration_cast<nanoseconds>(end_1 - start_1).count());
+          print_variable("quarter", result_2,
+                         duration_cast<nanoseconds>(end_2 - start_2).count());
+          print_variable("half", result_3,
+                         duration_cast<nanoseconds>(end_3 - start_3).count());
+        }
+        if (std::get<2>(result_fixed) || std::get<2>(result_1).back() ||
+            std::get<2>(result_2).back() || std::get<2>(result_3).back()) {
+          break;
+        }
+      }
+    }
+  }
 }
 
 }

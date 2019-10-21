@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 
-  perf_test::spmv_single_node();
+  perf_test::power_iteration_segmented(MPI_COMM_WORLD);
 
   MPI_Finalize();
   return 0;
@@ -100,9 +100,9 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
     std::cout << "Iter_count: " << iter_count << ", done: " << done << "\n\n";
   }
 
-  auto var_result = variable::power_iteration(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
+  auto var_result = variable::power_iteration_eigth(matrix_slice, x, rowcnt, MPI_COMM_WORLD);
   if (rank == 0) {
-    print_vector(var_result, "var_result");
+    print_vector(std::get<0>(var_result), "var_result");
   }
 }
 
