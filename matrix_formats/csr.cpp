@@ -11,7 +11,7 @@ std::vector<double> CSR::spmv(const std::vector<double>& x) const {
   std::vector<double> y(num_rows());
 
   #pragma omp parallel for default(none) shared(x, y)
-  for (unsigned long row = 0; row < m_rowptr.size() - 1; row++) {
+  for (size_t row = 0; row < m_rowptr.size() - 1; ++row) {
     double sum = 0.0;
     for (auto j = m_rowptr.at(row); j < m_rowptr.at(row + 1); j++) {
       sum += m_values.at(j) * x.at(m_colidx.at(j));

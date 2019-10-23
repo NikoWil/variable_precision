@@ -122,6 +122,13 @@ template <int start, int end> struct Double_slice {
     extract_slice<start, end>(d, bytes);
   }
 
+  template <int new_end>
+  explicit constexpr Double_slice(Double_slice<start, new_end> ds)
+      : Double_slice(ds.to_double()) {
+    static_assert(new_end <= end,
+                  "seg::Double_slice lossy construction of lesser precision slice from higher precision slice");
+  }
+
   constexpr double to_double() const { return insert_slice<start, end>(bytes); }
 
   constexpr int compare_bytes(Double_slice<start, end> other) const {
@@ -147,6 +154,9 @@ public:
   explicit constexpr Double_slice() : Double_slice(0.) {}
 
   explicit constexpr Double_slice(double d) : d{d} {}
+
+  template <int new_end>
+  explicit constexpr Double_slice(Double_slice<0, new_end> ds) : Double_slice(ds.to_double()) {}
 
   constexpr double to_double() const { return d; }
 

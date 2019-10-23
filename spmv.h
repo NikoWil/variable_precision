@@ -10,19 +10,21 @@
 #include "matrix_formats/csr.hpp"
 #include "segmentation_char/segmentation_char.h"
 
-template <int end, class OutputIt>
-void spmv(const CSR& matrix, const std::vector<seg::Double_slice<0, end>>& x, OutputIt begin, OutputIt last) {
+template <int end>
+void spmv(const CSR &matrix, const std::vector<seg::Double_slice<0, end>> &x,
+          std::vector<seg::Double_slice<0, end>> &out) {
   assert(x.size() == matrix.num_cols() && "Wrong dimension of x in A*x (CSR)");
-  assert(std::distance(begin, last) == matrix.num_rows());
-  static_cast<void>(last);
+  assert(out.size() == matrix.num_rows());
 
-  #pragma omp parallel for default(none) shared(x, begin, last, matrix)
-  for (unsigned long row = 0; row < matrix.rowptr().size() - 1; row++) {
+  //#pragma omp parallel for default(none) shared(x, out, matrix)
+  for (size_t row = 0; row < matrix.rowptr().size() - 1; row++) {
     double sum = 0.0;
-    for (auto j = matrix.rowptr().at(row); j < matrix.rowptr().at(row + 1); j++) {
+    for (auto j = matrix.rowptr().at(row); j < matrix.rowptr().at(row + 1);
+         ++j) {
       sum += matrix.values().at(j) * x.at(matrix.colidx().at(j)).to_double();
     }
-    *(begin + row) = seg::Double_slice<0, end>{sum};
+    out.at(row) = seg::Double_slice<0, end>{sum};
   }
 }
+
 #endif // CODE_SPMV_H

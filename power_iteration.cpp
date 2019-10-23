@@ -10,16 +10,14 @@
 #include "power_iteration.h"
 #include "segmentation/segmentation.h"
 
-const unsigned iteration_limit = 1000;
-const double eps_scaling = 1u << 10u;
-
 std::pair<std::vector<double>, bool>
-local::power_iteration(const CSR &matrix, const std::vector<double> &x) {
+local::power_iteration(const CSR &matrix, const std::vector<double> &x,
+                       int iteration_limit) {
   auto new_result = x;
   std::vector<double> old_result;
 
   bool done = false;
-  unsigned i = 0;
+  int i{0};
   while (!done && old_result != new_result && i < iteration_limit) {
     std::swap(old_result, new_result);
     new_result = matrix.spmv(old_result);
@@ -31,12 +29,7 @@ local::power_iteration(const CSR &matrix, const std::vector<double> &x) {
     std::for_each(new_result.begin(), new_result.end(),
                   [norm_fac](double &d) { d /= norm_fac; });
 
-    double diff{};
-    for (size_t k = 0; k < new_result.size(); ++k) {
-      diff += std::abs(new_result.at(k) - old_result.at(k));
-    }
-    diff /= new_result.size();
-    done = diff < std::numeric_limits<double>::epsilon() / eps_scaling;
+    done = new_result == old_result;
 
     ++i;
   }
@@ -48,7 +41,8 @@ local::power_iteration(const CSR &matrix, const std::vector<double> &x) {
 std::tuple<std::vector<double>, int, unsigned, bool>
 simple_seg::power_iteration(const CSR &matrix_slice,
                             const std::vector<double> &x,
-                            const std::vector<int> &rowcnt, MPI_Comm comm) {
+                            const std::vector<int> &rowcnt, MPI_Comm comm,
+                            int iteration_limit) {
   for (auto e : rowcnt) {
     (void)e;
     assert(e >= 0);
@@ -87,7 +81,7 @@ simple_seg::power_iteration(const CSR &matrix_slice,
 
   bool half_precision = true;
   bool done = false;
-  unsigned i = 0;
+  int i = 0;
   while (!done && i < iteration_limit) {
     old_result = new_result;
 
@@ -121,24 +115,15 @@ simple_seg::power_iteration(const CSR &matrix_slice,
     std::for_each(new_result.begin(), new_result.end(),
                   [norm_fac](double &d) { d /= norm_fac; });
 
-    double diff{};
-    for (size_t k = 0; k < new_result.size(); ++k) {
-      diff += std::abs(new_result.at(k) - old_result.at(k));
-    }
-    diff /= new_result.size();
-
-    const double half_epsilon = fill_head(0x3ff00001) - 1;
-
-    if (half_precision && old_result != new_result &&
-        diff < half_epsilon / eps_scaling) {
+    const auto same = old_result == new_result;
+    if (half_precision && old_result != new_result && same) {
       /*std::cout << "Rank " << rank << ", iteration " << i << ", switching
       precision\n"; MPI_Barrier(comm); if (rank == 0) { print_vector(old_result,
       "intermediate result");
       }*/
       precision_switch = i + 1;
       half_precision = false;
-    } else if (!half_precision && old_result != new_result &&
-               diff < std::numeric_limits<double>::epsilon() / eps_scaling) {
+    } else if (!half_precision && old_result != new_result && same) {
       /*std::cout << "Rank " << rank << ", iteration " << i << ", done\n";
       MPI_Barrier(comm);*/
       done = true;
@@ -152,7 +137,8 @@ simple_seg::power_iteration(const CSR &matrix_slice,
 
 std::tuple<std::vector<double>, unsigned, bool>
 fixed::power_iteration(const CSR &matrix_slice, const std::vector<double> &x,
-                const std::vector<int> &rowcnt, MPI_Comm comm) {
+                const std::vector<int> &rowcnt, MPI_Comm comm,
+                int iteration_limit) {
   for (auto e : rowcnt) {
     (void)e;
     assert(e >= 0);
@@ -173,6 +159,7 @@ fixed::power_iteration(const CSR &matrix_slice, const std::vector<double> &x,
   unsigned rank{static_cast<unsigned>(s_rank)};
   unsigned comm_size{static_cast<unsigned>(s_comm_size)};
 
+  (void)comm_size; // stop warning about unused variable in release mode
   assert(matrix_slice.num_rows() == static_cast<unsigned>(rowcnt.at(rank)));
   assert(rowcnt.size() == comm_size);
 
@@ -181,22 +168,24 @@ fixed::power_iteration(const CSR &matrix_slice, const std::vector<double> &x,
   displs.at(0) = 0;
   std::partial_sum(rowcnt.begin(), rowcnt.end() - 1, displs.begin() + 1);
 
-  std::vector<double> old_result;
+  std::vector<double> old_result(x.size());
   std::vector<double> new_result = x;
 
-  const std::vector<int> sendcounts(comm_size, rowcnt.at(rank));
-  const std::vector<int> sdispls(comm_size, 0);
+  std::vector<int> recvdispls;
+  recvdispls.push_back(0);
+  for (size_t i{0}; i < rowcnt.size() - 1; ++i) {
+    int displ = recvdispls.back() + rowcnt.at(i);
+    recvdispls.push_back(displ);
+  }
 
   bool done = false;
-  unsigned i = 0;
+  int i{0};
   while (!done && old_result != new_result && i < iteration_limit) {
     std::swap(old_result, new_result);
 
     auto partial_result = matrix_slice.spmv(old_result);
-    MPI_Alltoallv(partial_result.data(), sendcounts.data(), sdispls.data(),
-                  MPI_DOUBLE, new_result.data(), rowcnt.data(), displs.data(),
-                  MPI_DOUBLE, comm);
-
+    MPI_Allgatherv(partial_result.data(), rowcnt.at(rank), MPI_DOUBLE,
+        new_result.data(), rowcnt.data(), recvdispls.data(), MPI_DOUBLE, comm);
     auto square_sum =
         std::accumulate(new_result.begin(), new_result.end(), 0.,
                         [](double curr, double d) { return curr + d * d; });
@@ -204,12 +193,7 @@ fixed::power_iteration(const CSR &matrix_slice, const std::vector<double> &x,
     std::for_each(new_result.begin(), new_result.end(),
                   [norm_fac](double &d) { d /= norm_fac; });
 
-    double diff{};
-    for (size_t k = 0; k < new_result.size(); ++k) {
-      diff += std::abs(new_result.at(k) - old_result.at(k));
-    }
-    diff /= new_result.size();
-    done = diff < std::numeric_limits<double>::epsilon() / eps_scaling;
+    done = new_result == old_result;
     ++i;
   }
 
@@ -251,55 +235,55 @@ std::tuple<std::vector<double>, std::vector<unsigned>, std::vector<bool>>
 variable::power_iteration_eigth(const CSR &matrix_slice,
                                 const std::vector<double> &x,
                                 const std::vector<int> &rowcnt, MPI_Comm comm,
-                                int iteration_limit) {
+                                int iter_limit) {
   std::vector<unsigned> iterations;
   std::vector<bool> done;
 
   const auto guess_1 = convert_slice_vector<0>(x);
   const auto result_1 = segmented::power_iteration(matrix_slice, guess_1,
-                                                   rowcnt, comm, iteration_limit);
+                                                   rowcnt, comm, iter_limit);
   iterations.push_back(std::get<1>(result_1));
   done.push_back(std::get<2>(result_1));
 
   const auto guess_2 = convert_slice_vector<0, 1>(std::get<0>(result_1));
   const auto result_2 = segmented::power_iteration(matrix_slice, guess_2,
-                                                   rowcnt, comm, iteration_limit);
+                                                   rowcnt, comm, iter_limit);
   iterations.push_back(std::get<1>(result_2));
   done.push_back(std::get<2>(result_2));
 
   const auto guess_3 = convert_slice_vector<1, 2>(std::get<0>(result_2));
   const auto result_3 = segmented::power_iteration(matrix_slice, guess_3,
-                                                   rowcnt, comm, iteration_limit);
+                                                   rowcnt, comm, iter_limit);
   iterations.push_back(std::get<1>(result_3));
   done.push_back(std::get<2>(result_3));
 
   const auto guess_4 = convert_slice_vector<2, 3>(std::get<0>(result_3));
   const auto result_4 = segmented::power_iteration(matrix_slice, guess_4,
-                                                   rowcnt, comm, iteration_limit);
+                                                   rowcnt, comm, iter_limit);
   iterations.push_back(std::get<1>(result_4));
   done.push_back(std::get<2>(result_4));
 
   const auto guess_5 = convert_slice_vector<3, 4>(std::get<0>(result_4));
   const auto result_5 = segmented::power_iteration(matrix_slice, guess_5,
-                                                   rowcnt, comm, iteration_limit);
+                                                   rowcnt, comm, iter_limit);
   iterations.push_back(std::get<1>(result_5));
   done.push_back(std::get<2>(result_5));
 
   const auto guess_6 = convert_slice_vector<4, 5>(std::get<0>(result_5));
   const auto result_6 = segmented::power_iteration(matrix_slice, guess_6,
-                                                   rowcnt, comm, iteration_limit);
+                                                   rowcnt, comm, iter_limit);
   iterations.push_back(std::get<1>(result_6));
   done.push_back(std::get<2>(result_6));
 
   const auto guess_7 = convert_slice_vector<5, 6>(std::get<0>(result_6));
   const auto result_7 = segmented::power_iteration(matrix_slice, guess_7,
-                                                   rowcnt, comm, iteration_limit);
+                                                   rowcnt, comm, iter_limit);
   iterations.push_back(std::get<1>(result_7));
   done.push_back(std::get<2>(result_7));
 
   const auto guess_8 = convert_slice_vector<6, 7>(std::get<0>(result_7));
   const auto result_8 = segmented::power_iteration(matrix_slice, guess_8,
-                                                   rowcnt, comm, iteration_limit);
+                                                   rowcnt, comm, iter_limit);
   iterations.push_back(std::get<1>(result_8));
   done.push_back(std::get<2>(result_8));
 

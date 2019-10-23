@@ -30,7 +30,48 @@ int main(int argc, char* argv[]) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 
+  std::cout << std::setprecision(20);
   perf_test::power_iteration_segmented(MPI_COMM_WORLD);
+
+  /**
+  constexpr double d = 5.626349274901198e-221;
+
+  seg::Double_slice<0, 7> ds_1{d};
+  seg::Double_slice<0, 6> ds_2{d};
+  seg::Double_slice<0, 5> ds_3{d};
+  seg::Double_slice<0, 4> ds_4{d};
+  seg::Double_slice<0, 3> ds_5{d};
+  seg::Double_slice<0, 2> ds_6{d};
+  seg::Double_slice<0, 1> ds_7{d};
+  seg::Double_slice<0, 0> ds_8{d};
+
+  std::cout << "Sliced doubles:\n";
+  std::cout << ds_1.to_double() << std::endl;
+  std::cout << ds_2.to_double() << std::endl;
+  std::cout << ds_3.to_double() << std::endl;
+  std::cout << ds_4.to_double() << std::endl;
+  std::cout << ds_5.to_double() << std::endl;
+  std::cout << ds_6.to_double() << std::endl;
+  std::cout << ds_7.to_double() << std::endl;
+  std::cout << ds_8.to_double() << std::endl;
+
+  std::cout << "\nConverting between slices (hope: all equal):\n";
+  ds_7 = seg::Double_slice<0, 1>(ds_8);
+  ds_6 = seg::Double_slice<0, 2>(ds_8);
+  ds_5 = seg::Double_slice<0, 3>(ds_8);
+  ds_4 = seg::Double_slice<0, 4>(ds_8);
+  ds_3 = seg::Double_slice<0, 5>(ds_8);
+  ds_2 = seg::Double_slice<0, 6>(ds_8);
+  ds_1 = seg::Double_slice<0, 7>(ds_8);
+
+  std::cout << ds_7.to_double() << std::endl;
+  std::cout << ds_6.to_double() << std::endl;
+  std::cout << ds_5.to_double() << std::endl;
+  std::cout << ds_4.to_double() << std::endl;
+  std::cout << ds_3.to_double() << std::endl;
+  std::cout << ds_2.to_double() << std::endl;
+  std::cout << ds_1.to_double() << std::endl;
+  */
 
   MPI_Finalize();
   return 0;

@@ -46,14 +46,14 @@ void time_spmv_slice(const CSR &matrix, const std::vector<double> &x,
 
   double sum{0};
   for (unsigned i{0}; i < warmup_iterations; ++i) {
-    spmv(matrix, slice_vec, result_vec.begin(), result_vec.end());
+    spmv(matrix, slice_vec, result_vec);
     sum += result_vec.at(index_distrib(rng)).to_double();
   }
   for (unsigned i{0}; i < num_tests; ++i) {
     using namespace std::chrono;
 
     auto start = high_resolution_clock::now();
-    spmv(matrix, slice_vec, result_vec.begin(), result_vec.end());
+    spmv(matrix, slice_vec, result_vec);
     auto end = high_resolution_clock::now();
 
     sum += result_vec.at(index_distrib(rng)).to_double();
@@ -137,11 +137,12 @@ void power_iteration_segmented(MPI_Comm comm) {
   MPI_Comm_size(comm, &comm_size);
   MPI_Comm_rank(comm, &rank);
 
-  const auto max_size = 10;//(1u << 28u) * static_cast<unsigned>(sqrt(comm_size));
-  const auto min_size = 5;//static_cast<unsigned>(max_size / 64);
+  const auto max_size = 5;//(1u << 28u) * static_cast<unsigned>(sqrt(comm_size));
+  const auto min_size = 4;//static_cast<unsigned>(max_size / 64);
   constexpr unsigned min_density_fac = 4;
   constexpr unsigned max_density_fac = 5;//5 + 1;
   constexpr unsigned num_tests = 2;//15;
+  constexpr unsigned iter_limit = 3;
 
   const auto print_fixed =
       [](const std::string &mode,
@@ -183,8 +184,7 @@ void power_iteration_segmented(MPI_Comm comm) {
       }
 
       std::uniform_real_distribution<> distribution{1, 100};
-      std::vector<double> x;
-      x.resize(size);
+      std::vector<double> x(size);
       if (rank == 0) {
         for (size_t i = 0; i < x.size(); ++i) {
           x.at(i) = distribution(rng);
@@ -199,13 +199,11 @@ void power_iteration_segmented(MPI_Comm comm) {
       }
 
       MPI_Bcast(x.data(), x.size(), MPI_DOUBLE, 0, comm);
-      std::cout << "x distributed" << std::endl;
 
       const double density = 0.1 * density_fac;
       const auto &matrix = CSR::diagonally_dominant_slice(
           size, density, rng, start_row.at(rank), start_row.at(rank + 1) - 1);
 
-      std::cout << "matrix created" << matrix.rowptr()[0] << std::endl;
       if (rank == 0) {
         std::cout << "parameters: " << size << " " << density << " "
                   << matrix.num_values() << "\n";
@@ -215,22 +213,28 @@ void power_iteration_segmented(MPI_Comm comm) {
 
         auto start_fixed = high_resolution_clock::now();
         const auto result_fixed =
-            fixed::power_iteration(matrix, x, rowcnt, comm);
+            fixed::power_iteration(matrix, x, rowcnt, comm, iter_limit);
         auto end_fixed = high_resolution_clock::now();
 
+        MPI_Barrier(MPI_COMM_WORLD);
+        std::cout << "start eigth\n";
         auto start_1 = high_resolution_clock::now();
         const auto result_1 =
-            variable::power_iteration_eigth(matrix, x, rowcnt, comm);
+            variable::power_iteration_eigth(matrix, x, rowcnt, comm, iter_limit);
         auto end_1 = high_resolution_clock::now();
 
+        MPI_Barrier(MPI_COMM_WORLD);
+        std::cout << "start quarter\n";
         auto start_2 = high_resolution_clock::now();
         const auto result_2 =
-            variable::power_iteration_quarter(matrix, x, rowcnt, comm);
+            variable::power_iteration_quarter(matrix, x, rowcnt, comm, iter_limit);
         auto end_2 = high_resolution_clock::now();
 
+        MPI_Barrier(MPI_COMM_WORLD);
+        std::cout << "start half\n";
         auto start_3 = high_resolution_clock::now();
         const auto result_3 =
-            variable::power_iteration_half(matrix, x, rowcnt, comm);
+            variable::power_iteration_half(matrix, x, rowcnt, comm, iter_limit);
         auto end_3 = high_resolution_clock::now();
 
         if (rank == 0) {
@@ -243,9 +247,10 @@ void power_iteration_segmented(MPI_Comm comm) {
                          duration_cast<nanoseconds>(end_2 - start_2).count());
           print_variable("half", result_3,
                          duration_cast<nanoseconds>(end_3 - start_3).count());
+          std::cout << std::endl;
         }
-        if (std::get<2>(result_fixed) || std::get<2>(result_1).back() ||
-            std::get<2>(result_2).back() || std::get<2>(result_3).back()) {
+        if (!std::get<2>(result_fixed) || !std::get<2>(result_1).back() ||
+            !std::get<2>(result_2).back() || !std::get<2>(result_3).back()) {
           break;
         }
       }
