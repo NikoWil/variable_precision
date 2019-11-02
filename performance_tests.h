@@ -137,12 +137,14 @@ void power_iteration_segmented(MPI_Comm comm) {
   MPI_Comm_size(comm, &comm_size);
   MPI_Comm_rank(comm, &rank);
 
-  const auto max_size = 5;//(1u << 28u) * static_cast<unsigned>(sqrt(comm_size));
-  const auto min_size = 4;//static_cast<unsigned>(max_size / 64);
-  constexpr unsigned min_density_fac = 4;
-  constexpr unsigned max_density_fac = 5;//5 + 1;
-  constexpr unsigned num_tests = 2;//15;
-  constexpr unsigned iter_limit = 3;
+  const auto max_size = (1u << 15u) * static_cast<unsigned>(sqrt(comm_size)) / 4;
+  const auto min_size = static_cast<unsigned>(max_size / 64);
+  constexpr unsigned min_density_fac = 1;
+  constexpr unsigned max_density_fac = 5 + 1;
+  constexpr unsigned num_tests = 15;
+  constexpr unsigned iter_limit = 500;
+  constexpr unsigned num_instances = 5;
+  constexpr unsigned broken_limit{10};
 
   const auto print_fixed =
       [](const std::string &mode,
@@ -168,90 +170,104 @@ void power_iteration_segmented(MPI_Comm comm) {
       };
 
   for (auto size{min_size}; size < max_size + 1; size *= 2) {
+    std::vector<int> rowcnt;
+    for (int i{0}; i < comm_size; ++i) {
+      unsigned start = (size * i) / comm_size;
+      unsigned end = (size * (i + 1)) / comm_size;
+      rowcnt.push_back(end - start);
+    }
+
+    std::vector<int> start_row{0};
+    for (size_t i{0}; i < rowcnt.size(); ++i) {
+      const auto next = rowcnt.at(i) + start_row.back();
+      start_row.push_back(next);
+    }
+
     for (auto density_fac{min_density_fac}; density_fac < max_density_fac;
          ++density_fac) {
-      std::vector<int> rowcnt;
-      for (int i{0}; i < comm_size; ++i) {
-        unsigned start = (size * i) / comm_size;
-        unsigned end = (size * (i + 1)) / comm_size;
-        rowcnt.push_back(end - start);
-      }
 
-      std::vector<int> start_row{0};
-      for (size_t i{0}; i < rowcnt.size(); ++i) {
-        const auto next = rowcnt.at(i) + start_row.back();
-        start_row.push_back(next);
-      }
-
-      std::uniform_real_distribution<> distribution{1, 100};
-      std::vector<double> x(size);
-      if (rank == 0) {
-        for (size_t i = 0; i < x.size(); ++i) {
-          x.at(i) = distribution(rng);
-        }
-
-        auto square_sum =
-            std::accumulate(x.begin(), x.end(), 0.,
-                            [](double curr, double d) { return curr + d * d; });
-        auto norm_fac = sqrt(square_sum);
-        std::for_each(x.begin(), x.end(),
-                      [norm_fac](double &d) { d /= norm_fac; });
-      }
-
-      MPI_Bcast(x.data(), x.size(), MPI_DOUBLE, 0, comm);
-
-      const double density = 0.1 * density_fac;
-      const auto &matrix = CSR::diagonally_dominant_slice(
-          size, density, rng, start_row.at(rank), start_row.at(rank + 1) - 1);
-
-      if (rank == 0) {
-        std::cout << "parameters: " << size << " " << density << " "
-                  << matrix.num_values() << "\n";
-      }
-      for (unsigned i{0}; i < num_tests; ++i) {
-        using namespace std::chrono;
-
-        auto start_fixed = high_resolution_clock::now();
-        const auto result_fixed =
-            fixed::power_iteration(matrix, x, rowcnt, comm, iter_limit);
-        auto end_fixed = high_resolution_clock::now();
-
-        MPI_Barrier(MPI_COMM_WORLD);
-        std::cout << "start eigth\n";
-        auto start_1 = high_resolution_clock::now();
-        const auto result_1 =
-            variable::power_iteration_eigth(matrix, x, rowcnt, comm, iter_limit);
-        auto end_1 = high_resolution_clock::now();
-
-        MPI_Barrier(MPI_COMM_WORLD);
-        std::cout << "start quarter\n";
-        auto start_2 = high_resolution_clock::now();
-        const auto result_2 =
-            variable::power_iteration_quarter(matrix, x, rowcnt, comm, iter_limit);
-        auto end_2 = high_resolution_clock::now();
-
-        MPI_Barrier(MPI_COMM_WORLD);
-        std::cout << "start half\n";
-        auto start_3 = high_resolution_clock::now();
-        const auto result_3 =
-            variable::power_iteration_half(matrix, x, rowcnt, comm, iter_limit);
-        auto end_3 = high_resolution_clock::now();
-
+      unsigned instance_cnt{0};
+      unsigned broken_cnt{0};
+      while (instance_cnt < num_instances && broken_cnt < broken_limit) {
+        bool broken = false;
+        // Generate and distribute initial guess
+        std::uniform_real_distribution<> distribution{1, 100};
+        std::vector<double> x(size);
         if (rank == 0) {
-          print_fixed(
-              "fixed", result_fixed,
-              duration_cast<nanoseconds>(end_fixed - start_fixed).count());
-          print_variable("eigths", result_1,
-                         duration_cast<nanoseconds>(end_1 - start_1).count());
-          print_variable("quarter", result_2,
-                         duration_cast<nanoseconds>(end_2 - start_2).count());
-          print_variable("half", result_3,
-                         duration_cast<nanoseconds>(end_3 - start_3).count());
-          std::cout << std::endl;
+          for (size_t i = 0; i < x.size(); ++i) {
+            x.at(i) = distribution(rng);
+          }
+          auto square_sum = std::accumulate(
+              x.begin(), x.end(), 0.,
+              [](double curr, double d) { return curr + d * d; });
+          auto norm_fac = sqrt(square_sum);
+          std::for_each(x.begin(), x.end(),
+                        [norm_fac](double &d) { d /= norm_fac; });
         }
-        if (!std::get<2>(result_fixed) || !std::get<2>(result_1).back() ||
-            !std::get<2>(result_2).back() || !std::get<2>(result_3).back()) {
-          break;
+        MPI_Bcast(x.data(), x.size(), MPI_DOUBLE, 0, comm);
+
+        // Generate and distribute matrix
+        const double density = 0.1 * density_fac;
+        const auto &matrix = CSR::diagonally_dominant_slice(
+            size, density, rng, start_row.at(rank), start_row.at(rank + 1) - 1);
+
+        // Do the testing
+        if (rank == 0) {
+          std::cout << "parameters: " << size << " " << density << " "
+                    << matrix.num_values() << " " << instance_cnt << "\n";
+        }
+
+        for (unsigned i{0}; i < num_tests; ++i) {
+          using namespace std::chrono;
+
+          auto start_fixed = high_resolution_clock::now();
+          const auto result_fixed =
+              fixed::power_iteration(matrix, x, rowcnt, comm, iter_limit);
+          auto end_fixed = high_resolution_clock::now();
+
+          auto start_1 = high_resolution_clock::now();
+          const auto result_1 = variable::power_iteration_eigth(
+              matrix, x, rowcnt, comm, iter_limit);
+          auto end_1 = high_resolution_clock::now();
+
+          auto start_2 = high_resolution_clock::now();
+          const auto result_2 = variable::power_iteration_quarter(
+              matrix, x, rowcnt, comm, iter_limit);
+          auto end_2 = high_resolution_clock::now();
+
+          auto start_3 = high_resolution_clock::now();
+          const auto result_3 = variable::power_iteration_half(
+              matrix, x, rowcnt, comm, iter_limit);
+          auto end_3 = high_resolution_clock::now();
+
+          if (!std::get<2>(result_fixed) || !std::get<2>(result_1).back() ||
+              !std::get<2>(result_2).back() || !std::get<2>(result_3).back()) {
+            if (rank == 0) {
+              std::cout << "Breaking\n\n";
+            }
+            broken = true;
+            ++broken_cnt;
+            break;
+          } else {
+            if (rank == 0) {
+              print_fixed(
+                  "fixed", result_fixed,
+                  duration_cast<nanoseconds>(end_fixed - start_fixed).count());
+              print_variable(
+                  "eigths", result_1,
+                  duration_cast<nanoseconds>(end_1 - start_1).count());
+              print_variable(
+                  "quarter", result_2,
+                  duration_cast<nanoseconds>(end_2 - start_2).count());
+              print_variable(
+                  "half", result_3,
+                  duration_cast<nanoseconds>(end_3 - start_3).count());
+              std::cout << std::endl;
+            }
+          }
+        }
+        if (!broken) {
+          ++instance_cnt;
         }
       }
     }

@@ -94,6 +94,7 @@ power_iteration(const CSR &matrix_slice,
                 "No padding between Double_slice instances allowed");
   static_assert(sizeof(slice_type[3]) == 3 * slice_size,
                 "No padding between Double_slice instances allowed");
+
   unsigned rank, comm_size;
   {
     for (auto e : rowcnt) {
@@ -119,13 +120,14 @@ power_iteration(const CSR &matrix_slice,
     assert(matrix_slice.num_rows() == static_cast<unsigned>(rowcnt.at(rank)));
     assert(rowcnt.size() == comm_size);
   }
+
   // prefix sum of rowcnt to get recvdispls for MPI_Alltoallv
   std::vector<int> recvdispls(rowcnt.size());
   recvdispls.at(0) = 0;
   std::partial_sum(rowcnt.begin(), rowcnt.end() - 1, recvdispls.begin() + 1);
 
-  std::vector<slice_type> old_result = x;
-  std::vector<slice_type> new_result(x.size());
+  std::vector<slice_type> old_result(x.size());
+  std::vector<slice_type> new_result = x;
   std::vector<slice_type> partial_result(matrix_slice.num_rows());
 
   const std::vector<int> sendcounts(comm_size, rowcnt.at(rank));
@@ -144,52 +146,15 @@ power_iteration(const CSR &matrix_slice,
     char_recvdispls.push_back(r * slice_size);
   }
 
-  if (rank == 0) {
-    std::cout << std::endl << "####################################\n"
-                           << "########## New Iteration ###########\n"
-                           << "####################################\n";
-    std::cout << "x: ";
-    for (const auto ds : x) {
-      std::cout << ds.to_double() << " ";
-    }
-    std::cout << std::endl;
-  }
-
   bool done{false};
   int i = 0;
   do {
     std::swap(old_result, new_result);
 
-    spmv(matrix_slice, new_result, partial_result);
-
-    if (rank == 0) {
-      std::cout << "rank 0 partial result:\t";
-      for (const auto s : partial_result) {
-        std::cout << s.to_double() << " ";
-      }
-      std::cout << std::endl;
-    }
-    MPI_Barrier(comm);
-    if (rank == 1) {
-      std::cout << "rank 1 partial result:\t";
-      for (const auto s : partial_result) {
-        std::cout << s.to_double() << " ";
-      }
-      std::cout << std::endl;
-    }
-    MPI_Barrier(comm);
+    spmv(matrix_slice, old_result, partial_result);
     MPI_Allgatherv(reinterpret_cast<char*>(partial_result.data()), rowcnt.at(rank) * slice_size, MPI_BYTE,
                    reinterpret_cast<char*>(new_result.data()), char_recvcnt.data(),
                    char_recvdispls.data(), MPI_BYTE, comm);
-
-    if (rank == 0) {
-      std::cout << "rank 0 new_result:\t";
-      for (const auto ds : new_result) {
-        std::cout << ds.to_double() << " ";
-      }
-      std::cout << std::endl << std::endl;
-    }
-    MPI_Barrier(comm);
 
     auto square_sum = std::accumulate(new_result.begin(), new_result.end(), 0.,
                                       [](double curr, slice_type ds) {
@@ -203,15 +168,15 @@ power_iteration(const CSR &matrix_slice,
     }
     MPI_Barrier(comm);
 
-    /**const auto new_result_char =
-        reinterpret_cast<unsigned char *>(new_result.data());
-    const auto old_result_char =
-        reinterpret_cast<unsigned char *>(old_result.data());
-    done = std::equal(new_result_char,
-                      new_result_char + (slice_size * new_result.size()),
-                      old_result_char);
-    */
     done = true;
+    const char* const new_result_char =
+        reinterpret_cast<char*>(new_result.data());
+    const char* const old_result_char =
+        reinterpret_cast<char*>(old_result.data());
+    done = std::equal(new_result_char,
+                      new_result_char + (new_result.size() * slice_size),
+                      old_result_char);
+    /**
     for (size_t k{0}; k < new_result.size(); ++k) {
       const auto d1 = new_result.at(k).to_double();
       const auto d2 = old_result.at(k).to_double();
@@ -219,7 +184,7 @@ power_iteration(const CSR &matrix_slice,
         done = false;
         break;
       }
-    }
+    }*/
     ++i;
   } while (!done && i < iteration_limit);
 
