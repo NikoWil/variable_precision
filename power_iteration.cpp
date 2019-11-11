@@ -26,11 +26,15 @@ local::power_iteration(const CSR &matrix, const std::vector<double> &x,
         std::accumulate(new_result.begin(), new_result.end(), 0.,
                         [](double curr, double d) { return curr + d * d; });
     auto norm_fac = sqrt(square_sum);
-    std::for_each(new_result.begin(), new_result.end(),
-                  [norm_fac](double &d) { d /= norm_fac; });
+
+    if (norm_fac != 0) {
+      std::for_each(new_result.begin(), new_result.end(),
+                    [norm_fac](double &d) { d /= norm_fac; });
+    } else {
+      break;
+    }
 
     done = new_result == old_result;
-
     ++i;
   }
   // std::cout << "Simple power iteration " << i << " iterations" << std::endl;

@@ -8,6 +8,7 @@
 #include "matrix_formats/csr.hpp"
 #include "performance_tests.h"
 #include "power_iteration.h"
+#include "segmentation/segmentation.h"
 #include "segmentation_char/segmentation_char.h"
 #include "util/util.hpp"
 
@@ -31,7 +32,12 @@ int main(int argc, char* argv[]) {
   MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 
   std::cout << std::setprecision(20);
-  perf_test::power_iteration_segmented(MPI_COMM_WORLD);
+
+  const double d1_orig = -2.2850540575705988e+226; // 0xEEEE DDDD CCCC 0000
+  const double d2_orig = -5.858644336401044e-21;   // 0xBBBB AAAA 9999 0000
+  const double d3_orig = -1.4820015249736016e-267; // 0x8888 7777 6666 0000
+  const double d4_orig = 1.1907975642956042e+103;  // 0x5555 4444 3333 0000
+
 
   MPI_Finalize();
   return 0;

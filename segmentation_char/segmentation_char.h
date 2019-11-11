@@ -172,7 +172,7 @@ public:
   void print_bytes() const {
     Segmentation seg{d};
     for (auto c : seg.c) {
-      std::cout << (c & 0xFF) << " ";
+      std::cout << (c & 0xFFu) << " ";
     }
     std::cout << std::endl;
   }

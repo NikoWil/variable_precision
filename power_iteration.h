@@ -162,6 +162,9 @@ power_iteration(const CSR &matrix_slice,
                                         return curr + d * d;
                                       });
     auto norm_fac = sqrt(square_sum);
+    if (norm_fac == 0) {
+      break;
+    }
     for (size_t k = 0; k < new_result.size(); ++k) {
       double old_val = new_result.at(k).to_double();
       new_result.at(k) = slice_type{old_val / norm_fac};
