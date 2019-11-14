@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <limits>
 
-#include "segmentation.h"
+#include "seg_uint.h"
 
 void test_all_one() {
   uint64_t all_one = std::numeric_limits<uint64_t>::max();

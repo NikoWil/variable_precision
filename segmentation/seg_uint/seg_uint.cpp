@@ -5,7 +5,7 @@
 #include <cassert>
 #include <limits>
 
-#include "segmentation.h"
+#include "seg_uint.h"
 
 union Seg_lazy {
   static_assert(sizeof(double) == sizeof(uint64_t), "Double segmentation only works if double and uint64_t are of same size");

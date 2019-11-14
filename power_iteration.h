@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "matrix_formats/csr.hpp"
-#include "segmentation_char/segmentation_char.h"
+#include "seg_char.h"
 #include "spmv.h"
 
 namespace local {

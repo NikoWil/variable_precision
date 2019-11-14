@@ -18,14 +18,15 @@ IF (OPENMP_FOUND)
     SET (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 ENDIF()
 
+ADD_SUBDIRECTORY(matrix_formats)
+ADD_SUBDIRECTORY(segmentation)
+ADD_SUBDIRECTORY(util)
+
 ADD_EXECUTABLE(code spmv.h performance_tests.h)
-
 TARGET_SOURCES(code PRIVATE main.cpp power_iteration.cpp power_iteration.h communication.cpp communication.h)
-
-TARGET_LINK_LIBRARIES(code PRIVATE segmentation formats segmentation_char)
+TARGET_LINK_LIBRARIES(code PRIVATE seg_uint formats seg_char)
 
 FIND_PACKAGE(MPI REQUIRED)
-
 TARGET_INCLUDE_DIRECTORIES(code PRIVATE ${MPI_INCLUDE_PATH})
 TARGET_LINK_LIBRARIES(code PRIVATE ${MPI_LIBRARIES})
 
@@ -49,10 +50,8 @@ ENDIF()
 
 
 ADD_EXECUTABLE(test)
-
-TARGET_SOURCES(test PRIVATE test_main.cpp segmentation/segmentation_test.h segmentation/segmentation_test.cpp)
-
-TARGET_LINK_LIBRARIES(test segmentation)
+TARGET_SOURCES(test PRIVATE test_main.cpp segmentation/seg_uint/segmentation_test.h segmentation/seg_uint/segmentation_test.cpp)
+TARGET_LINK_LIBRARIES(test seg_uint)
 
 IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     MESSAGE("MSCV detected")
@@ -63,8 +62,3 @@ ELSEIF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 ELSEIF()
     MESSAGE(FATAL_ERROR "Neither GCC nor MSVC detected!")
 ENDIF()
-
-ADD_SUBDIRECTORY(matrix_formats)
-ADD_SUBDIRECTORY(segmentation)
-ADD_SUBDIRECTORY(segmentation_char)
-ADD_SUBDIRECTORY(util)

@@ -2,8 +2,8 @@
 // Created by niko on 8/9/19.
 //
 
-#ifndef CODE_SEGMENTATION_H
-#define CODE_SEGMENTATION_H
+#ifndef CODE_SEG_UINT_H
+#define CODE_SEG_UINT_H
 
 #include <cstdint>
 
@@ -40,4 +40,4 @@ void write_4(uint32_t *, const double *);
 void write_6(uint16_t *, const double *);
 }
 
-#endif // CODE_SEGMENTATION_H
+#endif // CODE_SEG_UINT_H

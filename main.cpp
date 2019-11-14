@@ -8,8 +8,8 @@
 #include "matrix_formats/csr.hpp"
 #include "performance_tests.h"
 #include "power_iteration.h"
-#include "segmentation/segmentation.h"
-#include "segmentation_char/segmentation_char.h"
+#include "seg_uint.h"
+#include "seg_char.h"
 #include "util/util.hpp"
 
 void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size);
@@ -38,6 +38,32 @@ int main(int argc, char* argv[]) {
   const double d3_orig = -1.4820015249736016e-267; // 0x8888 7777 6666 0000
   const double d4_orig = 1.1907975642956042e+103;  // 0x5555 4444 3333 0000
 
+  uint32_t u[4]{0, 0, 0, 0};
+  seg_uint::write_4(u, &d1_orig);
+  seg_uint::write_4(u + 1, &d2_orig);
+  seg_uint::write_4(u + 2, &d3_orig);
+  seg_uint::write_4(u + 3, &d4_orig);
+
+  // Expected: 4008631773  3149638314  2290644855  1431651396
+  // Actual:   4008631773  3149638314  2290644855  1431651396
+  for (const auto e : u) {
+    std::cout << e << "  ";
+  }
+  std::cout << std::endl;
+
+  double d1_dest{0};
+  double d2_dest{0};
+  double d3_dest{0};
+  double d4_dest{0};
+
+  seg_uint::read_4(u, &d1_dest);
+  seg_uint::read_4(u + 1, &d2_dest);
+  seg_uint::read_4(u + 2, &d3_dest);
+  seg_uint::read_4(u + 3, &d4_dest);
+
+  // Expected: -2.2850531538999212e+226     -5.8586423977260655e-21     -1.4820011552754347e-267     1.1907973934192487e+103
+  // Actual:   -2.2850531538999211542e+226  -5.8586423977260654884e-21  -1.4820011552754346953e-267  1.1907973934192487404e+103
+  std::cout << d1_dest << "  " << d2_dest << "  " << d3_dest << "  " << d4_dest << "\n";
 
   MPI_Finalize();
   return 0;

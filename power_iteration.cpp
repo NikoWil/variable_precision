@@ -8,7 +8,7 @@
 #include <tuple>
 
 #include "power_iteration.h"
-#include "segmentation/segmentation.h"
+#include "segmentation/seg_uint/seg_uint.h"
 
 std::pair<std::vector<double>, bool>
 local::power_iteration(const CSR &matrix, const std::vector<double> &x,

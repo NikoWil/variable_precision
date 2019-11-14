@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "matrix_formats/csr.hpp"
-#include "segmentation_char/segmentation_char.h"
+#include "seg_char.h"
 
 template <int end>
 void spmv(const CSR &matrix, const std::vector<seg::Double_slice<0, end>> &x,

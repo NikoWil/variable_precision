@@ -11,7 +11,7 @@
 
 #include "matrix_formats/csr.hpp"
 #include "power_iteration.h"
-#include "segmentation_char.h"
+#include "seg_char.h"
 #include "spmv.h"
 
 namespace {

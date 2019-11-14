@@ -2,8 +2,8 @@
 // Created by niko on 9/13/19.
 //
 
-#ifndef CODE_SEGMENTATION_CHAR_H
-#define CODE_SEGMENTATION_CHAR_H
+#ifndef CODE_SEG_CHAR_H
+#define CODE_SEG_CHAR_H
 
 #include <cstdint>
 #include <iostream>
@@ -181,4 +181,4 @@ private:
   double d;
 };
 }
-#endif // CODE_SEGMENTATION_CHAR_H
+#endif // CODE_SEG_CHAR_H

@@ -4,7 +4,7 @@
 
 #include <iostream>
 
-#include "segmentation/segmentation_test.h"
+#include "segmentation/seg_uint/segmentation_test.h"
 
 int main() {
   std::cout << std::hex;
