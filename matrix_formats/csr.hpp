@@ -36,8 +36,6 @@ explicit CSR(const std::vector<double>& values, const std::vector<int>& colidx, 
 
 CSR() : m_values{}, m_colidx{}, m_rowptr{0}, m_num_cols{0} {}
 
-std::vector<double> spmv(const std::vector<double>& x) const;
-
 static CSR empty();
 
 static CSR unit(unsigned n);

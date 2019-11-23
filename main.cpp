@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "communication.h"
+#include "linalg/power_iteration/poweriteration.h"
 #include "matrix_formats/csr.hpp"
 #include "performance_tests.h"
 #include "power_iteration.h"
-#include "seg_uint.h"
 #include "seg_char.h"
+#include "seg_uint.h"
 #include "util/util.hpp"
 
 void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size);
@@ -26,44 +27,19 @@ int main(int argc, char* argv[]) {
   }
 
   std::mt19937 rng{std::random_device{}()};
+  std::cout << std::setprecision(23);
 
   int rank, comm_size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 
-  std::cout << std::setprecision(20);
-
-  const double d1_orig = -2.2850540575705988e+226; // 0xEEEE DDDD CCCC 0000
-  const double d2_orig = -5.858644336401044e-21;   // 0xBBBB AAAA 9999 0000
-  const double d3_orig = -1.4820015249736016e-267; // 0x8888 7777 6666 0000
-  const double d4_orig = 1.1907975642956042e+103;  // 0x5555 4444 3333 0000
-
-  uint32_t u[4]{0, 0, 0, 0};
-  seg_uint::write_4(u, &d1_orig);
-  seg_uint::write_4(u + 1, &d2_orig);
-  seg_uint::write_4(u + 2, &d3_orig);
-  seg_uint::write_4(u + 3, &d4_orig);
-
-  // Expected: 4008631773  3149638314  2290644855  1431651396
-  // Actual:   4008631773  3149638314  2290644855  1431651396
-  for (const auto e : u) {
-    std::cout << e << "  ";
-  }
-  std::cout << std::endl;
-
-  double d1_dest{0};
-  double d2_dest{0};
-  double d3_dest{0};
-  double d4_dest{0};
-
-  seg_uint::read_4(u, &d1_dest);
-  seg_uint::read_4(u + 1, &d2_dest);
-  seg_uint::read_4(u + 2, &d3_dest);
-  seg_uint::read_4(u + 3, &d4_dest);
-
-  // Expected: -2.2850531538999212e+226     -5.8586423977260655e-21     -1.4820011552754347e-267     1.1907973934192487e+103
-  // Actual:   -2.2850531538999211542e+226  -5.8586423977260654884e-21  -1.4820011552754346953e-267  1.1907973934192487404e+103
-  std::cout << d1_dest << "  " << d2_dest << "  " << d3_dest << "  " << d4_dest << "\n";
+  const unsigned n{100000};
+  const CSR matrix = CSR::diagonally_dominant(n, 0.001, rng);
+  const std::vector<double> initial(n, 1.);
+  std::vector<double> result;
+  const auto meta_inf = local::power_iteration(matrix, initial, result, 1000);
+  std::cout << "Done: " << std::get<0>(meta_inf) << ", iter: " << std::get<1>(meta_inf) << "\n";
+  //print_vector(result, "result");
 
   MPI_Finalize();
   return 0;
@@ -108,9 +84,10 @@ void power_iteration_tests(std::mt19937 rng, unsigned rank, unsigned comm_size) 
   }
 
   if (rank == 0) {
-    auto result_simple = local::power_iteration(matrix, x);
+    std::vector<double> result_simple;
+    local::power_iteration(matrix, x, result_simple);
     std::cout << "Simple Power Iteration\n";
-    print_vector(result_simple.first, "simple power iteration");
+    print_vector(result_simple, "simple power iteration");
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -219,122 +196,4 @@ void measure_performance(std::mt19937 rng, unsigned rank, unsigned comm_size) {
       }
     }
   }
-}
-
-/*
- * +-------+
- * | 1   2 |
- * |   3 4 |
- * | 2 4   |
- * +-------+
- */
-CSR symmetric_matrix_1(std::mt19937 rng) {
-  std::vector<double> values(6);
-  const std::vector<int> colidx{0, 2, 1, 2, 0, 1};
-  const std::vector<int> rowptr{0, 2, 4, 6};
-  std::uniform_real_distribution<> distribution{-100, 100};
-
-  const auto v1 = distribution(rng);
-  const auto v2 = distribution(rng);
-  const auto v3 = distribution(rng);
-  const auto v4 = distribution(rng);
-
-  values.at(0) = v1;
-  values.at(1) = v2;
-  values.at(2) = v3;
-  values.at(3) = v4;
-  values.at(4) = v2;
-  values.at(5) = v4;
-
-  return CSR{values, colidx, rowptr, 3};
-}
-
-/*
- * +-------+
- * |   1   |
- * | 1 2   |
- * |     3 |
- * +-------+
- */
-CSR symmetric_matrix_2(std::mt19937 rng) {
-  std::vector<double> values(4);
-  std::vector<int> colidx{1, 0, 1, 2};
-  std::vector<int> rowptr{0, 1, 3, 4};
-
-  std::uniform_real_distribution<> distribution{-100, 100};
-
-  const auto v1 = distribution(rng);
-  const auto v2 = distribution(rng);
-  const auto v3 = distribution(rng);
-
-  values.at(0) = v1;
-  values.at(1) = v1;
-  values.at(2) = v2;
-  values.at(3) = v3;
-
-  return CSR{values, colidx, rowptr, 3};
-}
-
-/*
- * +---------+
- * | 1 2     |
- * | 2       |
- * |     3 4 |
- * |     4   |
- * +---------+
- */
-CSR symmetric_matrix_3(std::mt19937 rng) {
-  std::vector<double> values(6);
-  std::vector<int> colidx{0, 1, 0, 2, 3, 2};
-  std::vector<int> rowptr{0, 2, 3, 5, 6};
-
-  std::uniform_real_distribution<> distribution{-100, 100};
-
-  const auto v1 = distribution(rng);
-  const auto v2 = distribution(rng);
-  const auto v3 = distribution(rng);
-  const auto v4 = distribution(rng);
-
-  values.at(0) = v1;
-  values.at(1) = v2;
-  values.at(2) = v2;
-  values.at(3) = v3;
-  values.at(4) = v4;
-  values.at(5) = v4;
-
-  return CSR{values, colidx, rowptr, 4};
-}
-
-/*
- * +---------+
- * | 1     2 |
- * |   3 4   |
- * |   4 5   |
- * | 2     6 |
- * +---------+
- */
-CSR symmetric_matrix_4(std::mt19937 rng) {
-  std::vector<double> values(8);
-  std::vector<int> colidx{0, 3, 1, 2, 1, 2, 0, 3};
-  std::vector<int> rowptr{0, 2, 4, 6, 8};
-
-  std::uniform_real_distribution<> distribution{-100, 100};
-
-  const auto v1 = distribution(rng);
-  const auto v2 = distribution(rng);
-  const auto v3 = distribution(rng);
-  const auto v4 = distribution(rng);
-  const auto v5 = distribution(rng);
-  const auto v6 = distribution(rng);
-
-  values.at(0) = v1;
-  values.at(1) = v2;
-  values.at(2) = v3;
-  values.at(3) = v4;
-  values.at(4) = v4;
-  values.at(5) = v5;
-  values.at(6) = v2;
-  values.at(7) = v6;
-
-  return CSR{values, colidx, rowptr, 4};
 }

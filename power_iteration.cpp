@@ -7,40 +7,9 @@
 #include <numeric>
 #include <tuple>
 
+#include "linalg/spmv/spmv_fixed.h"
 #include "power_iteration.h"
-#include "segmentation/seg_uint/seg_uint.h"
-
-std::pair<std::vector<double>, bool>
-local::power_iteration(const CSR &matrix, const std::vector<double> &x,
-                       int iteration_limit) {
-  auto new_result = x;
-  std::vector<double> old_result;
-
-  bool done = false;
-  int i{0};
-  while (!done && old_result != new_result && i < iteration_limit) {
-    std::swap(old_result, new_result);
-    new_result = matrix.spmv(old_result);
-
-    auto square_sum =
-        std::accumulate(new_result.begin(), new_result.end(), 0.,
-                        [](double curr, double d) { return curr + d * d; });
-    auto norm_fac = sqrt(square_sum);
-
-    if (norm_fac != 0) {
-      std::for_each(new_result.begin(), new_result.end(),
-                    [norm_fac](double &d) { d /= norm_fac; });
-    } else {
-      break;
-    }
-
-    done = new_result == old_result;
-    ++i;
-  }
-  // std::cout << "Simple power iteration " << i << " iterations" << std::endl;
-
-  return std::make_pair(new_result, done);
-}
+#include "seg_uint.h"
 
 std::tuple<std::vector<double>, int, unsigned, bool>
 simple_seg::power_iteration(const CSR &matrix_slice,
@@ -83,13 +52,15 @@ simple_seg::power_iteration(const CSR &matrix_slice,
 
   unsigned precision_switch = -1;
 
+  std::vector<double> partial_result(matrix_slice.num_rows());
+
   bool half_precision = true;
   bool done = false;
   int i = 0;
   while (!done && i < iteration_limit) {
     old_result = new_result;
 
-    auto partial_result = matrix_slice.spmv(old_result);
+    fixed::spmv(matrix_slice, old_result, partial_result);
 
     if (half_precision) {
       std::vector<uint32_t> partial_result_heads;
@@ -182,12 +153,13 @@ fixed::power_iteration(const CSR &matrix_slice, const std::vector<double> &x,
     recvdispls.push_back(displ);
   }
 
+  std::vector<double> partial_result(matrix_slice.num_rows());
   bool done = false;
   int i{0};
   while (!done && old_result != new_result && i < iteration_limit) {
     std::swap(old_result, new_result);
 
-    auto partial_result = matrix_slice.spmv(old_result);
+    fixed::spmv(matrix_slice, old_result, partial_result);
     MPI_Allgatherv(partial_result.data(), rowcnt.at(rank), MPI_DOUBLE,
         new_result.data(), rowcnt.data(), recvdispls.data(), MPI_DOUBLE, comm);
     auto square_sum =

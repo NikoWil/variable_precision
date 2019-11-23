@@ -12,17 +12,6 @@
 #include "seg_char.h"
 #include "spmv.h"
 
-namespace local {
-/**
- * Perform power iteration on a single node using fixed precision.
- * This function serves as ground truth to check the correctness of other
- * power iteration implementations.
- */
-std::pair<std::vector<double>, bool>
-power_iteration(const CSR &matrix, const std::vector<double> &x,
-                int iteration_limit = 1000);
-}
-
 namespace simple_seg {
 /**
  * Perform power iteration using the simple double segmentation into two
@@ -151,7 +140,7 @@ power_iteration(const CSR &matrix_slice,
   do {
     std::swap(old_result, new_result);
 
-    spmv(matrix_slice, old_result, partial_result);
+    seg_char::spmv(matrix_slice, old_result, partial_result);
     MPI_Allgatherv(reinterpret_cast<char*>(partial_result.data()), rowcnt.at(rank) * slice_size, MPI_BYTE,
                    reinterpret_cast<char*>(new_result.data()), char_recvcnt.data(),
                    char_recvdispls.data(), MPI_BYTE, comm);

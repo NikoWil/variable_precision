@@ -9,6 +9,7 @@
 #include <cmath>
 #include <iostream>
 
+#include "linalg/spmv/spmv_fixed.h"
 #include "matrix_formats/csr.hpp"
 #include "power_iteration.h"
 #include "seg_char.h"
@@ -46,14 +47,14 @@ void time_spmv_slice(const CSR &matrix, const std::vector<double> &x,
 
   double sum{0};
   for (unsigned i{0}; i < warmup_iterations; ++i) {
-    spmv(matrix, slice_vec, result_vec);
+    seg_char::spmv(matrix, slice_vec, result_vec);
     sum += result_vec.at(index_distrib(rng)).to_double();
   }
   for (unsigned i{0}; i < num_tests; ++i) {
     using namespace std::chrono;
 
     auto start = high_resolution_clock::now();
-    spmv(matrix, slice_vec, result_vec);
+    seg_char::spmv(matrix, slice_vec, result_vec);
     auto end = high_resolution_clock::now();
 
     sum += result_vec.at(index_distrib(rng)).to_double();
@@ -99,15 +100,16 @@ void spmv_single_node() {
         const auto density = density_fac * 0.1;
         CSR matrix = CSR::random(width, height, density, rng);
 
+        std::vector<double> result(matrix.num_rows());
         for (unsigned i{0}; i < warmup_iterations; ++i) {
-          auto result = matrix.spmv(x);
+          fixed::spmv(matrix, x, result);
           sum += result.at(index_distrib(rng));
         }
         for (unsigned i{0}; i < num_tests; ++i) {
           using namespace std::chrono;
 
           auto start = high_resolution_clock::now();
-          auto result = matrix.spmv(x);
+          fixed::spmv(matrix, x, result);
           auto end = high_resolution_clock::now();
 
           sum += result.at(index_distrib(rng));

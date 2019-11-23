@@ -10,6 +10,7 @@
 #include "matrix_formats/csr.hpp"
 #include "seg_char.h"
 
+namespace seg_char {
 template <int end>
 void spmv(const CSR &matrix, const std::vector<seg::Double_slice<0, end>> &x,
           std::vector<seg::Double_slice<0, end>> &out) {
@@ -26,5 +27,5 @@ void spmv(const CSR &matrix, const std::vector<seg::Double_slice<0, end>> &x,
     out.at(row) = seg::Double_slice<0, end>{sum};
   }
 }
-
+}
 #endif // CODE_SPMV_H

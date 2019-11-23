@@ -5,23 +5,6 @@
 
 #include "csr.hpp"
 
-std::vector<double> CSR::spmv(const std::vector<double>& x) const {
-  assert(x.size() == static_cast<size_t>(m_num_cols) && "Wrong dimension of x in A*x (CSR)");
-
-  std::vector<double> y(num_rows());
-
-  #pragma omp parallel for default(none) shared(x, y)
-  for (size_t row = 0; row < m_rowptr.size() - 1; ++row) {
-    double sum = 0.0;
-    for (auto j = m_rowptr.at(row); j < m_rowptr.at(row + 1); j++) {
-      sum += m_values.at(j) * x.at(m_colidx.at(j));
-    }
-    y.at(row) = sum;
-  }
-
-  return y;
-}
-
 CSR CSR::empty() {
   return CSR::unit(0);
 }
@@ -43,13 +26,18 @@ CSR CSR::diagonally_dominant(unsigned n, double density, std::mt19937 rng) {
   assert(density * n >= 1 && "Matrix needs at least 1 element per row");
 
   constexpr unsigned lower = 1;
-  constexpr unsigned upper = 10000;
+  constexpr unsigned upper = 10;
+  constexpr unsigned l = 10;
   static_assert(lower < upper, "");
 
   std::uniform_int_distribution<> index_distrib(0, n - 1);
   std::uniform_real_distribution<> value_distrib(lower, upper);
   // TODO: more variety in the diagonal?
-  std::uniform_real_distribution<> diag_distrib(n * upper + 1, n * (lower + upper) + 1);
+  std::uniform_real_distribution<> diag_distrib(density * n * upper, density * n * upper + l);
+  // min value of max diagonal element to guarantee a big Eigenvalue
+  // (follows from Gerschgorin circles): (3 * n - 2) * upper + l + 1;
+  const double max_val = (3 * density * n - 2) * upper + l + 1;
+  //const double max_val = 6 * n * upper + 10 * l;
 
   std::vector<double> values;
   std::vector<int> colidx;
@@ -80,6 +68,9 @@ CSR CSR::diagonally_dominant(unsigned n, double density, std::mt19937 rng) {
     colidx.insert(std::end(colidx), std::begin(row_colidx), std::end(row_colidx));
     rowptr.push_back(values.size());
   }
+  // Put a value at position (0, 0) that guarantees an Eigenvalue >> than the other EVs
+  // This leads to good convergence of the power iteration
+  values[0] = max_val;
 
   return CSR{values, colidx, rowptr, n};
 }
