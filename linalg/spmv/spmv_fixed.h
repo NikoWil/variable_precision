@@ -11,6 +11,31 @@
 
 namespace fixed {
 void spmv(const CSR &matrix, const std::vector<double> &x,
-          std::vector<double> &y);
+          std::vector<double>& __restrict__ y);
 }
+
+namespace seg_uint {
+namespace pre_convert {
+void spmv_2(const CSR& matrix, const std::vector<uint16_t > &x,
+            std::vector<uint16_t > &y);
+
+void spmv_4(const CSR& matrix, const std::vector<uint32_t > &x,
+            std::vector<uint32_t > &y);
+
+void spmv_6(const CSR& matrix, const std::vector<uint16_t > &x,
+            std::vector<uint16_t> &y);
+}
+
+namespace calc_convert {
+void spmv_2(const CSR &matrix, const std::vector<uint16_t> &x,
+            std::vector<uint16_t> &__restrict__ y);
+
+void spmv_4(const CSR &matrix, const std::vector<uint32_t> &x,
+            std::vector<uint32_t> &__restrict__ y);
+
+void spmv_6(const CSR &matrix, const std::vector<uint16_t> &x,
+            std::vector<uint16_t> &__restrict__ y);
+}
+}
+
 #endif // CODE_SPMV_FIXED_H

@@ -5,6 +5,8 @@
 #ifndef CODE_POWERITERATION_H
 #define CODE_POWERITERATION_H
 
+#include <mpi.h>
+
 #include "../../matrix_formats/csr.hpp"
 
 namespace local {
@@ -14,9 +16,24 @@ namespace local {
  * power iteration implementations.
  */
 std::pair<bool, int> power_iteration(const CSR &matrix,
-                                         const std::vector<double> &x,
-                                         std::vector<double> &curr,
-                                         int iteration_limit = 1000);
+                                     const std::vector<double> &x,
+                                     std::vector<double> &curr,
+                                     int iteration_limit = 1000);
 }
 
+namespace distributed {
+namespace fixed {
+std::pair<bool, int> power_iteration(const CSR &matrix,
+                                     const std::vector<double> &initial,
+                                     std::vector<double> &result, MPI_Comm comm,
+                                     int iteration_limit = 1000);
+}
+
+namespace seg_uint {
+std::pair<bool, int> power_iteration_4(const CSR &matrix,
+                                     const std::vector<double> &initial,
+                                     std::vector<double> &result, MPI_Comm comm,
+                                     int iteration_limit = 1000);
+}
+}
 #endif // CODE_POWERITERATION_H
