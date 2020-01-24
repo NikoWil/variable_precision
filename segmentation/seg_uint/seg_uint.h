@@ -27,17 +27,17 @@ namespace seg_uint {
  *  by going 'read<N>(...)'?
  *  Side goal: have it fail when handing in the wrong types
  */
-void read_2(const uint16_t *, double *);
+    void read_2(const uint16_t *, double *);
 
-void read_4(const uint32_t *, double *);
+    void read_4(const uint32_t *, double *);
 
-void read_6(const uint16_t *, double *);
+    void read_6(const uint16_t *, double *);
 
-void write_2(uint16_t *, const double *);
+    void write_2(uint16_t *, const double *);
 
-void write_4(uint32_t *, const double *);
+    void write_4(uint32_t *, const double *);
 
-void write_6(uint16_t *, const double *);
+    void write_6(uint16_t *, const double *);
 }
 
 #endif // CODE_SEG_UINT_H

@@ -6,6 +6,7 @@
 #define CODE_POWER_ITERATION_H
 
 #include <mpi.h>
+#include <tuple>
 #include <vector>
 
 #include "matrix_formats/csr.hpp"

@@ -5,6 +5,7 @@
 #ifndef CODE_PERFORMANCE_TESTS_H
 #define CODE_PERFORMANCE_TESTS_H
 
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -30,7 +31,7 @@ std::vector<seg::Double_slice<0, n>> to_slice_vector(const std::vector<double> &
 }
 
 void print_result(int slice_length, unsigned width, unsigned height,
-                  double density, unsigned num_values, unsigned time) {
+                  double density, unsigned num_values, uint64_t time) {
 
   std::cout << slice_length << " " << width << " " << height << " " << density
             << " " << num_values << " " << time << "\n";
