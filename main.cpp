@@ -13,7 +13,7 @@
 #include "seg_uint.h"
 #include "util/util.hpp"
 
-void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned warmup);
+void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned warmup, std::mt19937& rng);
 
 void get_rowcnt_start_row(MPI_Comm comm, int num_rows, std::vector<int> &rowcnt, std::vector<int> &start_row) {
     int comm_size;
@@ -44,7 +44,6 @@ int main(int argc, char *argv[]) {
         return 0;
     }*/
 
-    std::mt19937 rng{std::random_device{}()};
     std::cout << std::setprecision(20);
 
     //int rank, comm_size;
@@ -67,7 +66,7 @@ int main(int argc, char *argv[]) {
 
     for (unsigned size{min_size}; size <= max_size; size <<= 1u) {
         for (const auto density: densities) {
-            benchmark_spmv(size, density, iterations, warmup);
+            benchmark_spmv(size, density, iterations, warmup, rng);
         }
     }
 
@@ -98,7 +97,7 @@ T average(const std::vector<T> &v) {
     return sum / v.size();
 }
 
-void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned warmup, std::mt19937 rng) {
+void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned warmup, std::mt19937& rng) {
     // Generate matrix & (segmented) vector
     std::uniform_real_distribution<> value_distrib(0, 100'000);
     std::uniform_int_distribution<> index_distrib(0, size);
