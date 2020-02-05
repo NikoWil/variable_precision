@@ -10,7 +10,7 @@ void fixed::spmv(const CSR &matrix, const std::vector<double> &x, std::vector<do
     assert(y.size() == matrix.num_rows() && "fixed::spmv y has wrong size in Ax = y");
 
     const int upper = static_cast<int>(matrix.rowptr().size() - 1);
-#pragma omp parallel for default(none) shared(matrix, x, y, upper)
+#pragma omp parallel for default(none) shared(matrix, x, y)
     for (int row = 0; row < upper; ++row) {
         double sum = 0.0;
         for (auto j = matrix.rowptr().at(row); j < matrix.rowptr().at(row + 1); j++) {
@@ -94,7 +94,7 @@ void spmv_6(const CSR& matrix, const std::vector<uint16_t> &x,
                    "seg_uint::spmv_2 Wrong dimension of y in Ax = y");
 
             const int upper = static_cast<int>(matrix.rowptr().size() - 1);
-#pragma omp parallel for default(none) shared(matrix, x, y, upper)
+#pragma omp parallel for default(none) shared(matrix, x, y)
             for (int row = 0; row < upper; ++row) {
                 double sum = 0.0;
                 for (auto j = matrix.rowptr().at(row); j < matrix.rowptr().at(row + 1);
@@ -118,7 +118,7 @@ void spmv_6(const CSR& matrix, const std::vector<uint16_t> &x,
                    "seg_uint::spmv_4 Wrong dimension of y in Ax = y");
 
             const int upper = static_cast<int>(matrix.rowptr().size() - 1);
-#pragma omp parallel for default(none) shared(matrix, x, y, upper)
+#pragma omp parallel for default(none) shared(matrix, x, y)
             for (int row = 0; row < upper; ++row) {
                 double sum = 0.0;
                 for (auto j = matrix.rowptr().at(row); j < matrix.rowptr().at(row + 1);
@@ -142,7 +142,7 @@ void spmv_6(const CSR& matrix, const std::vector<uint16_t> &x,
                    "seg_uint::spmv_2 Wrong dimension of y in Ax = y");
 
             const int upper = static_cast<int>(matrix.rowptr().size() - 1);
-#pragma omp parallel for default(none) shared(matrix, x, y, upper)
+#pragma omp parallel for default(none) shared(matrix, x, y)
             for (int row = 0; row < upper; ++row) {
                 double sum = 0.0;
                 for (auto j = matrix.rowptr().at(row); j < matrix.rowptr().at(row + 1);
@@ -168,7 +168,7 @@ void spmv_6(const CSR& matrix, const std::vector<uint16_t> &x,
                    "seg_uint::out_convert::spmv_2 Wrong dimension of y in Ax = y");
 
             const int upper = static_cast<int>(matrix.rowptr().size() - 1);
-#pragma omp parallel for default(none) shared(matrix, x, y, upper)
+#pragma omp parallel for default(none) shared(matrix, x, y)
             for (int row = 0; row < upper; ++row) {
                 double sum = 0.0;
                 for (auto j = matrix.rowptr().at(row); j < matrix.rowptr().at(row + 1);
@@ -188,7 +188,7 @@ void spmv_6(const CSR& matrix, const std::vector<uint16_t> &x,
                    "seg_uint::out_convert::spmv_4 Wrong dimension of y in Ax = y");
 
             const int upper = static_cast<int>(matrix.rowptr().size() - 1);
-#pragma omp parallel for default(none) shared(matrix, x, y, upper)
+#pragma omp parallel for default(none) shared(matrix, x, y)
             for (int row = 0; row < upper; ++row) {
                 double sum = 0.0;
                 for (auto j = matrix.rowptr().at(row); j < matrix.rowptr().at(row + 1);
@@ -208,7 +208,7 @@ void spmv_6(const CSR& matrix, const std::vector<uint16_t> &x,
                    "seg_uint::out_convert::spmv_6 Wrong dimension of y in Ax = y");
 
             const int upper = static_cast<int>(matrix.rowptr().size() - 1);
-#pragma omp parallel for default(none) shared(matrix, x, y, upper)
+#pragma omp parallel for default(none) shared(matrix, x, y)
             for (int row = 0; row < upper; ++row) {
                 double sum = 0.0;
                 for (auto j = matrix.rowptr().at(row); j < matrix.rowptr().at(row + 1);
