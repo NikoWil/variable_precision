@@ -16,74 +16,80 @@
 
 class CSR {
 public:
-explicit CSR(const std::vector<double>& values, const std::vector<int>& colidx, const std::vector<int>& rowptr, unsigned num_cols)
-  :m_values(values), m_colidx(colidx), m_rowptr(rowptr), m_num_cols(num_cols)
-  {
-    assert(values.size() == colidx.size() && "CSR size of values and colidx must be same");
-    for (const auto& e : colidx) {
-      (void)e;
-      assert(e >= 0 && static_cast<unsigned>(e) < num_cols && "CSR each colidx must fulfill 0 <= idx < num_cols");
+    explicit CSR(const std::vector<double> &values, const std::vector<int> &colidx, const std::vector<int> &rowptr,
+                 unsigned num_cols)
+            : m_values(values), m_colidx(colidx), m_rowptr(rowptr), m_num_cols(num_cols) {
+        assert(values.size() == colidx.size() && "CSR size of values and colidx must be same");
+        for (const auto &e : colidx) {
+            (void) e;
+            assert(e >= 0 && static_cast<unsigned>(e) < num_cols && "CSR each colidx must fulfill 0 <= idx < num_cols");
+        }
+        for (const auto &e : rowptr) {
+
+            (void) e;
+            assert(e >= 0 && static_cast<size_t>(e) <= values.size() &&
+                   "CSR rowptr entries must fulfill 0 <= e <= values.size()");
+        }
+
+        assert(std::is_sorted(rowptr.begin(), rowptr.end()) && "CSR rowptr must be sorted in ascending order");
+        assert(static_cast<size_t>(rowptr.back()) == values.size() &&
+               "CSR rowptr last element must point at element after colidx/ values");
     }
-    for (const auto& e : rowptr) {
 
-      (void)e;
-      assert(e >= 0 && static_cast<size_t>(e) <= values.size() && "CSR rowptr entries must fulfill 0 <= e <= values.size()");
+    CSR() : m_values{}, m_colidx{}, m_rowptr{0}, m_num_cols{0} {}
+
+    static CSR empty();
+
+    static CSR unit(unsigned n);
+
+    static CSR diagonally_dominant(unsigned n, double density, std::mt19937 rng);
+
+    static CSR diagonally_dominant_slice(unsigned n, double density,
+                                         std::mt19937 rng, unsigned first_row, unsigned last_row);
+
+    static CSR fixed_eta(unsigned n, double density, double eta, std::mt19937 &rng) {
+    
     }
 
-    assert(std::is_sorted(rowptr.begin(), rowptr.end()) && "CSR rowptr must be sorted in ascending order");
-    assert(static_cast<size_t>(rowptr.back()) == values.size() && "CSR rowptr last element must point at element after colidx/ values");
-  }
+    static CSR random(unsigned width, unsigned height, double density, std::mt19937 rng);
 
-CSR() : m_values{}, m_colidx{}, m_rowptr{0}, m_num_cols{0} {}
+    const std::vector<double> &values() const {
+        return m_values;
+    }
 
-static CSR empty();
+    const std::vector<int> &colidx() const {
+        return m_colidx;
+    }
 
-static CSR unit(unsigned n);
+    const std::vector<int> &rowptr() const {
+        return m_rowptr;
+    }
 
-static CSR diagonally_dominant(unsigned n, double density, std::mt19937 rng);
+    unsigned num_cols() const {
+        return m_num_cols;
+    }
 
-static CSR diagonally_dominant_slice(unsigned n, double density,
-    std::mt19937 rng, unsigned first_row, unsigned last_row);
+    unsigned num_rows() const {
+        return m_rowptr.size() - 1;
+    }
 
-static CSR random(unsigned width, unsigned height, double density, std::mt19937 rng);
+    unsigned num_values() const {
+        return m_values.size();
+    }
 
-const std::vector<double> & values() const {
-  return m_values;
-}
-
-const std::vector<int> & colidx() const {
-  return m_colidx;
-}
-
-const std::vector<int> & rowptr() const {
-  return m_rowptr;
-}
-
-unsigned num_cols() const {
-  return m_num_cols;
-}
-
-unsigned num_rows() const {
-  return m_rowptr.size() - 1;
-}
-
-unsigned num_values() const {
-  return m_values.size();
-}
-
-void print() const {
-  print_vector(m_values, "m_values");
-  print_vector(m_colidx, "m_colidx");
-  print_vector(m_rowptr, "m_rowptr");
-  std::cout << "m_num_cols: " << m_num_cols << std::endl;
-  std::cout << "m_num_rows: " << this->num_rows() << std::endl;
-}
+    void print() const {
+        print_vector(m_values, "m_values");
+        print_vector(m_colidx, "m_colidx");
+        print_vector(m_rowptr, "m_rowptr");
+        std::cout << "m_num_cols: " << m_num_cols << std::endl;
+        std::cout << "m_num_rows: " << this->num_rows() << std::endl;
+    }
 
 private:
-std::vector<double> m_values;
-std::vector<int> m_colidx;
-std::vector<int> m_rowptr;
-unsigned m_num_cols;
+    std::vector<double> m_values;
+    std::vector<int> m_colidx;
+    std::vector<int> m_rowptr;
+    unsigned m_num_cols;
 };
 
 #endif // CODE_CSR_HPP
