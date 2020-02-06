@@ -47,9 +47,7 @@ public:
     static CSR diagonally_dominant_slice(unsigned n, double density,
                                          std::mt19937 rng, unsigned first_row, unsigned last_row);
 
-    static CSR fixed_eta(unsigned n, double density, double eta, std::mt19937 &rng) {
-    
-    }
+    static CSR fixed_eta(unsigned n, double density, double eta, std::mt19937 &rng);
 
     static CSR random(unsigned width, unsigned height, double density, std::mt19937 rng);
 

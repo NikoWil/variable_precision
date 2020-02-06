@@ -125,6 +125,80 @@ CSR CSR::diagonally_dominant_slice(unsigned n, double density, std::mt19937 rng,
     return CSR{values, colidx, rowptr, n};
 }
 
+CSR CSR::fixed_eta(unsigned n, double density, double eta, std::mt19937 &rng) {
+    assert(density >= 0. && density <= 1. && "CSR::fixed_eta Density needs to be in interval (0, 1)");
+    assert(density * n >= 1 && "CSR::fixed_eta Matrix needs at least 1 element per row");
+    assert(eta > 0. && eta < 1. && "CSR::fixed_eta eta needs to be in interval (0, 1)");
+
+    constexpr double lambda_1 = 10.0;
+    const double lambda_2 = lambda_1 * eta;
+
+    std::uniform_int_distribution<> index_distrib(0, n - 1);
+
+    // Generate two distinct but random rows to house the biggest two Eigenvalues
+    unsigned lambda_1_row = index_distrib(rng);
+    unsigned lambda_2_row = index_distrib(rng);
+    while (lambda_1_row == lambda_2_row) {
+        lambda_2_row = index_distrib(rng);
+    }
+
+    // The range for Eigenvalues has equal distance to lambda_2 and zero. Both won't be hit by Gerschgorin circles.
+    constexpr double ev_fac = 0.75; // Determines the fraction of
+    static_assert(ev_fac > 0.5 && ev_fac < 1,
+                  "CSR::fixed_eta Eigenvalues that are neither lambda 1 nor lambda 2 must be in the range (0.5, 1) * lambda_2");
+    const double ev_upper = lambda_2 * ev_fac;
+    const double ev_lower = lambda_2 * (1. - ev_fac);
+    std::uniform_real_distribution<> ev_distribution(ev_upper, ev_lower);
+
+    // determine value-range for non-diagonal elements, s.t. their Gerschgorin circles do not contain lambda 2 or lambda 1, no matter what
+    const auto num_non_diagonal = static_cast<unsigned>(density * n - 1);
+    // 0.9 for a slightly bigger gap between Gerschgorin circles and lambda_2
+    const double max_non_diag = 0.9 * (lambda_2 - ev_upper) / num_non_diagonal;
+    std::uniform_real_distribution<> value_distribution(max_non_diag / 256., max_non_diag);
+
+    std::vector<double> values;
+    std::vector<int> colidx;
+    std::vector<int> rowptr;
+    rowptr.push_back(0);
+    // construct all the rows
+    for (unsigned row = 0; row < n; ++row) {
+        if (row == lambda_1_row) {
+            values.push_back(lambda_1);
+            colidx.push_back(row);
+        } else if (row == lambda_2_row) {
+            values.push_back(lambda_2);
+            colidx.push_back(row);
+        } else { // Create a 'normal' matrix row where we do not particularly care about the Eigenvalues
+            std::vector<double> row_values{};
+            // values for 1 row, insert 1 extra to later replace with an eigenvalue
+            for (unsigned k = 0; k < density * n; ++k) {
+                row_values.push_back(value_distribution(rng));
+            }
+
+            std::set<int> colidx_set{};
+            colidx_set.insert(row);
+            while (colidx_set.size() < density * n) {
+                colidx_set.insert(index_distrib(rng));
+            }
+            std::vector<int> row_colidx(colidx_set.size());
+            std::copy(std::begin(colidx_set), std::end(colidx_set), std::begin(row_colidx));
+
+            // insert diagonally dominant element
+            auto diag_index = std::distance(std::begin(row_colidx),
+                                            std::find(std::begin(row_colidx), std::end(row_colidx), row));
+            row_values.at(diag_index) = ev_distribution(rng);
+
+            // update matrix
+            values.insert(std::end(values), std::begin(row_values), std::end(row_values));
+            colidx.insert(std::end(colidx), std::begin(row_colidx), std::end(row_colidx));
+            // rowptr.push_back(values.size());
+        }
+        rowptr.push_back(values.size());
+    }
+
+    return CSR{values, colidx, rowptr, n};
+}
+
 CSR CSR::random(unsigned width, unsigned height, double density, std::mt19937 rng) {
     assert(width > 0 && "CSR::random Matrix width needs to be > 1");
     assert(height > 0 && "CSR::random Matrix height needs to be > 1");
