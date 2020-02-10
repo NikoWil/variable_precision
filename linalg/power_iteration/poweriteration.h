@@ -15,25 +15,31 @@ namespace local {
  * This function serves as ground truth to check the correctness of other
  * power iteration implementations.
  */
-std::pair<bool, int> power_iteration(const CSR &matrix,
-                                     const std::vector<double> &x,
-                                     std::vector<double> &curr,
-                                     int iteration_limit = 1000);
+    std::pair<bool, int> power_iteration(const CSR &matrix,
+                                         const std::vector<double> &x,
+                                         std::vector<double> &curr,
+                                         int iteration_limit = 1000);
 }
 
 namespace distributed {
-namespace fixed {
-std::pair<bool, int> power_iteration(const CSR &matrix,
-                                     const std::vector<double> &initial,
-                                     std::vector<double> &result, MPI_Comm comm,
-                                     int iteration_limit = 1000);
-}
+    namespace fixed {
+        std::pair<bool, int>
+        power_iteration(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result,
+                        MPI_Comm comm, int iteration_limit = 1000);
+    }
 
-namespace seg_uint {
-std::pair<bool, int> power_iteration_4(const CSR &matrix,
-                                     const std::vector<double> &initial,
-                                     std::vector<double> &result, MPI_Comm comm,
-                                     int iteration_limit = 1000);
-}
+    namespace seg_uint {
+        std::pair<bool, int>
+        power_iteration_2(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result,
+                          MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
+
+        std::pair<bool, int>
+        power_iteration_4(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result,
+                          MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
+
+        std::pair<bool, int>
+        power_iteration_6(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result,
+                          MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
+    }
 }
 #endif // CODE_POWERITERATION_H

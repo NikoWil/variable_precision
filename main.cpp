@@ -12,6 +12,7 @@
 #include "seg_char.h"
 #include "seg_uint.h"
 #include "util/util.hpp"
+#include "pi_benchmarks.h"
 
 void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned warmup, std::mt19937& rng);
 
@@ -36,41 +37,24 @@ void get_rowcnt_start_row(MPI_Comm comm, int num_rows, std::vector<int> &rowcnt,
 int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
-    /*const auto requested = MPI_THREAD_FUNNELED;
+    const auto requested = MPI_THREAD_FUNNELED;
     int provided;
     MPI_Init_thread(&argc, &argv, requested, &provided);
     if (provided < requested) {
         std::cout << "No sufficient MPI multithreading support found\n";
         return 0;
-    }*/
-
-    std::cout << std::setprecision(20);
-
-    //int rank, comm_size;
-    //MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    //MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
-
-    const auto seed = std::random_device{}();
-    std::mt19937 rng(seed);
-    
-    std::cout << "Seed: " << seed << "\n";
-    
-    constexpr unsigned min_size{1u << 7u};
-    constexpr unsigned max_size{1u << 18u};
-
-    const std::array<double, 7> densities{1./2., 1./4., 1./8., 1./16.,
-                                          1./32., 1./64., 1./128.};
-
-    constexpr unsigned iterations{100};
-    constexpr unsigned warmup{50};
-
-    for (unsigned size{min_size}; size <= max_size; size <<= 1u) {
-        for (const auto density: densities) {
-            benchmark_spmv(size, density, iterations, warmup, rng);
-        }
     }
 
-    //MPI_Finalize();
+    //std::cout << std::setprecision(20);
+
+    std::vector<int> sizes{1 << 10, 1 << 11, 1 << 12, 1 << 13, 1 << 14, 1 << 15, 1 << 16, 1 << 17, 1 << 18};
+    std::vector<double> densities{1./ 32., 1. / 64., 1. / 128., 1. / 256., 1. / 512.};
+    std::vector<double> etas{0.97, 0.93, 0.85, 0.69, 0.37};
+    const int num_tests = 30;
+
+    iteration_counter(sizes, densities, etas, num_tests);
+
+    MPI_Finalize();
     return 0;
 }
 

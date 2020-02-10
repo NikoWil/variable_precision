@@ -29,7 +29,7 @@ ADD_SUBDIRECTORY(matrix_formats)
 ADD_SUBDIRECTORY(segmentation)
 ADD_SUBDIRECTORY(util)
 
-ADD_EXECUTABLE(code spmv.h performance_tests.h)
+ADD_EXECUTABLE(code spmv.h performance_tests.h pi_benchmarks.cpp pi_benchmarks.h)
 TARGET_SOURCES(code PRIVATE main.cpp power_iteration.cpp power_iteration.h communication.cpp communication.h)
 TARGET_LINK_LIBRARIES(code PRIVATE seg_uint formats seg_char linalg)
 
