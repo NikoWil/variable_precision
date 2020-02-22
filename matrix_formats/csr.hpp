@@ -17,7 +17,7 @@
 class CSR {
 public:
     explicit CSR(const std::vector<double> &values, const std::vector<int> &colidx, const std::vector<int> &rowptr,
-                 unsigned num_cols)
+                 size_t num_cols)
             : m_values(values), m_colidx(colidx), m_rowptr(rowptr), m_num_cols(num_cols) {
         assert(values.size() == colidx.size() && "CSR size of values and colidx must be same");
         for (const auto &e : colidx) {
@@ -45,11 +45,13 @@ public:
     static CSR diagonally_dominant(unsigned n, double density, std::mt19937 rng);
 
     static CSR diagonally_dominant_slice(unsigned n, double density,
-                                         std::mt19937 rng, unsigned first_row, unsigned last_row);
+                                         std::mt19937& rng, unsigned first_row, unsigned last_row);
 
     static CSR fixed_eta(unsigned n, double density, double eta, std::mt19937 &rng);
 
-    static CSR random(unsigned width, unsigned height, double density, std::mt19937 rng);
+    static CSR fixed_eta_slice(unsigned n, double density, unsigned first_row, unsigned last_row, std::mt19937& rng);
+
+    static CSR random(uint64_t width, uint64_t height, double density, std::mt19937 rng);
 
     const std::vector<double> &values() const {
         return m_values;
@@ -87,7 +89,7 @@ private:
     std::vector<double> m_values;
     std::vector<int> m_colidx;
     std::vector<int> m_rowptr;
-    unsigned m_num_cols;
+    size_t m_num_cols;
 };
 
 #endif // CODE_CSR_HPP

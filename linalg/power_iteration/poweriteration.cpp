@@ -335,12 +335,8 @@ namespace distributed {
             int i{0};
             while (!done && i < iteration_limit) {
                 // Calculate z_{k+1} = A * y_k
-                ::fixed::spmv(matrix, curr, partial_result);
+                ::seg_uint::out_convert::spmv_2(matrix, curr, partial_result_halves);
 
-                // Convert to uint32_t for distribution only
-                for (size_t k{0}; k < partial_result.size(); ++k) {
-                    ::seg_uint::write_2(&partial_result_halves.at(k), &partial_result.at(k));
-                }
                 MPI_Allgatherv(partial_result_halves.data(), rowcnt.at(rank), MPI_UINT16_T, next_halves.data(),
                                rowcnt.data(), recvdispls.data(), MPI_UINT16_T, comm);
                 for (size_t k{0}; k < next_halves.size(); ++k) {
@@ -467,19 +463,14 @@ namespace distributed {
             std::vector<double> next(initial.size());
             std::vector<uint32_t> next_halves(initial.size());
 
-            std::vector<double> partial_result(rowcnt.at(rank));
             std::vector<uint32_t> partial_result_halves(rowcnt.at(rank));
 
             bool done = false;
             int i{0};
             while (!done && i < iteration_limit) {
                 // Calculate z_{k+1} = A * y_k
-                ::fixed::spmv(matrix, curr, partial_result);
+                ::seg_uint::out_convert::spmv_4(matrix, curr, partial_result_halves);
 
-                // Convert to uint32_t for distribution only
-                for (size_t k{0}; k < partial_result.size(); ++k) {
-                    ::seg_uint::write_4(&partial_result_halves.at(k), &partial_result.at(k));
-                }
                 MPI_Allgatherv(partial_result_halves.data(), rowcnt.at(rank), MPI_UINT32_T,
                                next_halves.data(), rowcnt.data(), recvdispls.data(), MPI_UINT32_T,
                                comm);
@@ -612,18 +603,13 @@ namespace distributed {
             std::vector<double> next(initial.size());
             std::vector<uint16_t> next_halves(3 * initial.size());
 
-            std::vector<double> partial_result(rowcnt.at(rank));
             std::vector<uint16_t> partial_result_halves(3 * rowcnt.at(rank));
             bool done = false;
             int i{0};
             while (!done && i < iteration_limit) {
                 // Calculate z_{k+1} = A * y_k
-                ::fixed::spmv(matrix, curr, partial_result);
+                ::seg_uint::out_convert::spmv_6(matrix, curr, partial_result_halves);
 
-                // Convert to uint32_t for distribution only
-                for (size_t k{0}; k < partial_result.size(); ++k) {
-                    ::seg_uint::write_6(&partial_result_halves.at(3 * k), &partial_result.at(k));
-                }
                 MPI_Allgatherv(partial_result_halves.data(), 3 * rowcnt.at(rank), MPI_UINT16_T,
                                next_halves.data(), recvcounts.data(), recvdispls.data(), MPI_UINT16_T,
                                comm);

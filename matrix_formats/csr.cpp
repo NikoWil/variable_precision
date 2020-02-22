@@ -76,7 +76,7 @@ CSR CSR::diagonally_dominant(unsigned n, double density, std::mt19937 rng) {
     return CSR{values, colidx, rowptr, n};
 }
 
-CSR CSR::diagonally_dominant_slice(unsigned n, double density, std::mt19937 rng,
+CSR CSR::diagonally_dominant_slice(unsigned n, double density, std::mt19937& rng,
                                    unsigned first_row, unsigned last_row) {
     assert(density * n >= 1 && "CSR::diagonally_dominant_slice Matrix needs at least 1 element per row");
     assert(first_row <= last_row && "CSR::diagonally_dominant_slice First row <= last_row required");
@@ -199,10 +199,10 @@ CSR CSR::fixed_eta(unsigned n, double density, double eta, std::mt19937 &rng) {
     return CSR{values, colidx, rowptr, n};
 }
 
-CSR CSR::random(unsigned width, unsigned height, double density, std::mt19937 rng) {
+CSR CSR::random(uint64_t width, uint64_t height, double density, std::mt19937 rng) {
     assert(width > 0 && "CSR::random Matrix width needs to be > 1");
     assert(height > 0 && "CSR::random Matrix height needs to be > 1");
-    assert(density >= 0 && "CSR::random matrix density needs to be in [0, infinity)");
+    assert(density >= 0 && density <= 1 && "CSR::random matrix density needs to be in [0, 1]");
 
     std::vector<std::vector<double>> value_matrix{height, std::vector<double>(width, 0.)};
 
@@ -211,7 +211,7 @@ CSR CSR::random(unsigned width, unsigned height, double density, std::mt19937 rn
     std::uniform_real_distribution<> value_distrib(0.001, 100'000.);
 
     unsigned num_values{0};
-    while (width * height * density > num_values) {
+    while (width * (height * density) > num_values) {
         auto x = x_distrib(rng);
         auto y = y_distrib(rng);
         if (value_matrix.at(y).at(x) != 0) {
