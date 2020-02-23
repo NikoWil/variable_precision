@@ -3,9 +3,9 @@
 //
 
 #include <limits>
-#include <seg_uint.h>
 
 #include "../spmv/spmv_fixed.h"
+#include "../segmentation/seg_uint.h"
 #include "poweriteration.h"
 
 namespace {

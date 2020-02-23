@@ -7,7 +7,7 @@
 
 #include "pi_benchmarks.h"
 #include "matrix_formats/csr.hpp"
-#include "linalg/power_iteration/poweriteration.h"
+#include "power_iteration/poweriteration.h"
 #include "communication.h"
 
 void

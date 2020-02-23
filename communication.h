@@ -10,7 +10,6 @@
 #include <mpi.h>
 
 #include "matrix_formats/csr.hpp"
-#include "seg_char.h"
 
 void bcast_vector(std::vector<double>& v, MPI_Comm comm, int root);
 

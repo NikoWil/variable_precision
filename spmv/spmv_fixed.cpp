@@ -3,7 +3,7 @@
 //
 
 #include "spmv_fixed.h"
-#include <seg_uint.h>
+#include "../segmentation/seg_uint.h"
 
 void fixed::spmv(const CSR &matrix, const std::vector<double> &x, std::vector<double> &y) {
     assert(x.size() == static_cast<size_t>(matrix.num_cols()) && "fixed::spmv wrong dimension of x in Ax = y");

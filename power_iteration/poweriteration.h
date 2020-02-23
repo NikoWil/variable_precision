@@ -7,7 +7,7 @@
 
 #include <mpi.h>
 
-#include "../../matrix_formats/csr.hpp"
+#include "../matrix_formats/csr.hpp"
 
 namespace local {
 /**

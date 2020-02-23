@@ -50,4 +50,24 @@ std::vector<T> duplicate_indices(const std::vector<T>& values, const std::vector
     return buffed_values;
 }
 
+template<typename T>
+T median(std::vector<T> &v) {
+    const auto size = v.size();
+    const auto index_1 = size / 2;
+    const auto index_2 = (size - 1) / 2;
+
+    std::nth_element(v.begin(), v.begin() + index_1, v.end());
+    const T e1 = v[index_1];
+    std::nth_element(v.begin(), v.begin() + index_2, v.end());
+    const T e2 = v[index_2];
+
+    return (e1 + e2) / 2;
+}
+
+template<typename T>
+T average(const std::vector<T> &v) {
+    const auto sum = std::accumulate(v.begin(), v.end(), 0);
+    return sum / v.size();
+}
+
 #endif // CODE_UTIL_HPP

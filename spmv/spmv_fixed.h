@@ -7,7 +7,7 @@
 
 #include <vector>
 
-#include "../../matrix_formats/csr.hpp"
+#include "../matrix_formats/csr.hpp"
 
 namespace fixed {
     void spmv(const CSR &matrix, const std::vector<double> &x,

@@ -4,7 +4,6 @@ PROJECT(code)
 SET(CMAKE_CXX_STANDARD 14)
 
 IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
     ADD_COMPILE_OPTIONS(-fopenmp -lpthread)
 ELSEIF()
     MESSAGE(FATAL_ERROR "Neither GCC nor MSVC detected!")
@@ -17,24 +16,15 @@ IF (OPENMP_FOUND)
     SET (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 ENDIF()
 
-
 FIND_PACKAGE(MPI REQUIRED)
 INCLUDE_DIRECTORIES(${MPI_INCLUDE_PATH})
 LINK_LIBRARIES(${MPI_LIBRARIES})
-#TARGET_INCLUDE_DIRECTORIES(code PRIVATE ${MPI_INCLUDE_PATH})
-#TARGET_LINK_LIBRARIES(code PRIVATE ${MPI_LIBRARIES})
 
-ADD_SUBDIRECTORY(linalg)
-ADD_SUBDIRECTORY(matrix_formats)
-ADD_SUBDIRECTORY(segmentation)
-ADD_SUBDIRECTORY(util)
-
-ADD_EXECUTABLE(code spmv.h performance_tests.h pi_benchmarks.cpp pi_benchmarks.h)
-TARGET_SOURCES(code PRIVATE main.cpp power_iteration.cpp power_iteration.h communication.cpp communication.h)
-TARGET_LINK_LIBRARIES(code PRIVATE seg_uint formats seg_char linalg)
-
-
-
+ADD_EXECUTABLE(code)
+TARGET_SOURCES(code PRIVATE main.cpp util/util.hpp
+        matrix_formats/csr.hpp matrix_formats/csr.cpp communication.cpp communication.h
+        segmentation/seg_uint.h spmv/spmv_fixed.cpp spmv/spmv_fixed.h power_iteration/poweriteration.cpp power_iteration/poweriteration.h
+        pi_benchmarks.cpp pi_benchmarks.h)
 
 IF(MPI_COMPILE_FLAGS)
     SET_TARGET_PROPERTIES(code PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
@@ -50,21 +40,6 @@ IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 ELSEIF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     MESSAGE("GCC detected")
     TARGET_COMPILE_OPTIONS(code PRIVATE -g -O3 -Wall -Wextra -pedantic -Werror)
-ELSEIF()
-    MESSAGE(FATAL_ERROR "Neither GCC nor MSVC detected!")
-ENDIF()
-
-
-ADD_EXECUTABLE(test)
-TARGET_SOURCES(test PRIVATE test_main.cpp segmentation/seg_uint/segmentation_test.h segmentation/seg_uint/segmentation_test.cpp)
-TARGET_LINK_LIBRARIES(test seg_uint)
-
-IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    MESSAGE("MSCV detected")
-    TARGET_COMPILE_OPTIONS(test PRIVATE /W3 /WX)
-ELSEIF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    MESSAGE("GCC detected")
-    TARGET_COMPILE_OPTIONS(test PRIVATE -Wall -Wextra -pedantic -Werror)
 ELSEIF()
     MESSAGE(FATAL_ERROR "Neither GCC nor MSVC detected!")
 ENDIF()
