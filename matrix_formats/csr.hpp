@@ -38,9 +38,13 @@ public:
 
     CSR() : m_values{}, m_colidx{}, m_rowptr{0}, m_num_cols{0} {}
 
+    static CSR transpose(const CSR& matrix);
+
     static CSR empty();
 
     static CSR unit(unsigned n);
+
+    static CSR row_stochastic(unsigned n, double density, std::mt19937 rng);
 
     static CSR diagonally_dominant(unsigned n, double density, std::mt19937 rng);
 
@@ -48,8 +52,6 @@ public:
                                          std::mt19937& rng, unsigned first_row, unsigned last_row);
 
     static CSR fixed_eta(unsigned n, double density, double eta, std::mt19937 &rng);
-
-    static CSR fixed_eta_slice(unsigned n, double density, unsigned first_row, unsigned last_row, std::mt19937& rng);
 
     static CSR random(uint64_t width, uint64_t height, double density, std::mt19937 rng);
 

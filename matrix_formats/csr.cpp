@@ -5,6 +5,44 @@
 
 #include "csr.hpp"
 
+CSR CSR::transpose(const CSR &matrix) {
+    assert(matrix.num_rows() == matrix.num_rows() && "CSR::transpose expectes the input matrix to be square");
+    const int n = static_cast<int>(matrix.num_cols());
+    std::vector<double> values(matrix.m_values.size());
+    std::vector<int> colidx(matrix.m_colidx.size());
+    std::vector<int> rowptr(n + 1);
+
+    std::vector<int> colcnts(n, 0);
+    for (const auto c : matrix.colidx()) {
+        colcnts.at(c) += 1;
+    }
+
+    rowptr[0] = 0;
+    for (int i = 0; i < n; ++i) {
+        rowptr[i + 1] = rowptr[i] + colcnts[i];
+    }
+    assert(static_cast<size_t>(rowptr[n]) == values.size() && "CSR::transpose assert rowptr[n] == values.size()");
+
+    std::vector<int> offsets(n);
+    std::copy(rowptr.begin(), rowptr.end() - 1, offsets.begin());
+
+    int row = 0;
+    for (unsigned i = 0; i < values.size(); ++i) {
+        if (i == static_cast<unsigned>(matrix.m_rowptr[row + 1])) {
+            row += 1;
+        }
+
+        const int idx = offsets[matrix.m_colidx[i]];
+        std::cout << "idx: " << idx << "\n";
+        values[idx] = matrix.m_values[i];
+        colidx[idx] = row;
+
+        offsets[matrix.m_colidx[i]] += 1;
+    }
+
+    return CSR{values, colidx, rowptr, matrix.num_cols()};
+}
+
 CSR CSR::empty() {
     return CSR::unit(0);
 }

@@ -2,9 +2,11 @@
 #include <iostream>
 #include <mpi.h>
 #include <vector>
+#include <random>
 
 #include "pi_benchmarks.h"
 #include "spmv_benchmark.h"
+#include "matrix_formats/csr.hpp"
 
 void get_rowcnt_start_row(MPI_Comm comm, int num_rows, std::vector<int> &rowcnt, std::vector<int> &start_row) {
     int comm_size;
@@ -37,7 +39,17 @@ int main(int argc, char *argv[]) {
 
     std::cout << std::setprecision(20);
 
-    benchmark_spmv(20);
+    std::mt19937 rng(std::random_device{}());
+    const CSR matrix = CSR::fixed_eta(6, 0.4, 0.5, rng);
+    const CSR transpose = CSR::transpose(matrix);
+
+    std::cout << "matrix:\n";
+    matrix.print();
+
+    std::cout << "\ntranspose:\n";
+    transpose.print();
+
+    // benchmark_spmv(20);
     /*std::mt19937 rng{std::random_device{}()};
     std::array<int, 7> sizes{1 << 10, 1 << 11, 1 << 12, 1 << 13, 1 << 14, 1 << 15, 1 << 16};
 
