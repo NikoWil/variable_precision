@@ -33,7 +33,6 @@ CSR CSR::transpose(const CSR &matrix) {
         }
 
         const int idx = offsets[matrix.m_colidx[i]];
-        std::cout << "idx: " << idx << "\n";
         values[idx] = matrix.m_values[i];
         colidx[idx] = row;
 
@@ -56,6 +55,40 @@ CSR CSR::unit(unsigned n) {
         rowptr.at(i) = i;
     }
     rowptr.back() = static_cast<int>(n);
+
+    return CSR{values, colidx, rowptr, n};
+}
+
+CSR CSR::row_stochastic(unsigned int n, double density, std::mt19937 rng) {
+    assert(0 <= density && density <= 1 && "CSR::row_stochastic density needs to be in interval [0, 1]");
+    unsigned vals_per_row = density * n;
+    assert(vals_per_row > 0 && "CSR::row_stochastic needs density that guarantees at least 1 value per row");
+
+    std::vector<double> values;
+    values.reserve(n * vals_per_row);
+    std::vector<int> colidx;
+    colidx.reserve(n * vals_per_row);
+    std::vector<int> rowptr;
+    rowptr.reserve(n + 1);
+    rowptr.push_back(0);
+
+    double normed_value = 1. / static_cast<double>(vals_per_row); // each entry is of size 1 / vals_per_row, s.t. sum(row) = 1.
+
+    std::uniform_int_distribution<> index_distribution(0, n - 1);
+    // generate & append one more row
+    for (unsigned i = 0; i < n; ++i) {
+        std::vector<double> new_values(vals_per_row, normed_value);
+        std::set<int> indices;
+        while (indices.size() < vals_per_row) {
+            indices.insert(index_distribution(rng));
+        }
+        std::vector<int> new_colidx(indices.begin(), indices.end());
+        std::sort(new_colidx.begin(), new_colidx.end());
+
+        values.insert(values.end(), new_values.begin(), new_values.end());
+        colidx.insert(colidx.end(), new_colidx.begin(), new_colidx.end());
+        rowptr.push_back(colidx.size());
+    }
 
     return CSR{values, colidx, rowptr, n};
 }

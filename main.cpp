@@ -7,6 +7,7 @@
 #include "pi_benchmarks.h"
 #include "spmv_benchmark.h"
 #include "matrix_formats/csr.hpp"
+#include "power_iteration/pagerank.h"
 
 void get_rowcnt_start_row(MPI_Comm comm, int num_rows, std::vector<int> &rowcnt, std::vector<int> &start_row) {
     int comm_size;
@@ -37,17 +38,36 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    int rank, comm_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
     std::cout << std::setprecision(20);
 
     std::mt19937 rng(std::random_device{}());
-    const CSR matrix = CSR::fixed_eta(6, 0.4, 0.5, rng);
+    unsigned n = 1000000;
+    double density = 0.00001;
+    const CSR matrix = CSR::row_stochastic(n, density, rng);
     const CSR transpose = CSR::transpose(matrix);
 
     std::cout << "matrix:\n";
-    matrix.print();
+    //matrix.print();
 
     std::cout << "\ntranspose:\n";
-    transpose.print();
+    //transpose.print();
+
+    std::vector<double> initial(n, 1. / static_cast<double>(n));
+    std::vector<double> result(n);
+
+    auto [done, iterations] = pagerank::fixed::pagerank(transpose, initial, result, 0.85, MPI_COMM_WORLD);
+    if (rank == 0) {
+        if (done) {
+            std::cout << "Iterations: " << iterations << "\n";
+        } else {
+            std::cout << "No termination\n";
+        }
+        //print_vector(result, "result");
+    }
 
     // benchmark_spmv(20);
     /*std::mt19937 rng{std::random_device{}()};
