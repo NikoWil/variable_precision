@@ -66,7 +66,7 @@ T median(std::vector<T> &v) {
 
 template<typename T>
 T average(const std::vector<T> &v) {
-    const auto sum = std::accumulate(v.begin(), v.end(), 0);
+    const auto sum = std::accumulate(v.begin(), v.end(), 0.);
     return sum / v.size();
 }
 

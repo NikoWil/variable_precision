@@ -61,7 +61,7 @@ CSR CSR::unit(unsigned n) {
 
 CSR CSR::row_stochastic(unsigned int n, double density, std::mt19937 rng) {
     assert(0 <= density && density <= 1 && "CSR::row_stochastic density needs to be in interval [0, 1]");
-    unsigned vals_per_row = density * n;
+    unsigned vals_per_row = static_cast<unsigned>(density * n);
     assert(vals_per_row > 0 && "CSR::row_stochastic needs density that guarantees at least 1 value per row");
 
     std::vector<double> values;

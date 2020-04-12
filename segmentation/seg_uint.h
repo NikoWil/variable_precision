@@ -28,21 +28,21 @@ namespace {
 
 namespace seg_uint {
     inline void read_2(const uint16_t *const u, double *d) {
-        Seg_16 s;
+        Seg_16 s{};
         s.u64 = 0;
         s.u16[3] = *u;
         *d = s.d;
     }
 
     inline void read_4(const uint32_t *const u, double *d) {
-        Seg_32 s;
+        Seg_32 s{};
         s.u64 = 0;
         s.u32[1] = *u;
         *d = s.d;
     }
 
     inline void read_6(const uint16_t *const u, double *d) {
-        Seg_16 s;
+        Seg_16 s{};
         s.u64 = 0;
         s.u16[3] = u[0];
         s.u16[2] = u[1];
@@ -51,19 +51,19 @@ namespace seg_uint {
     }
 
     inline void write_2(uint16_t *u, const double *const d) {
-        Seg_16 s;
+        Seg_16 s{};
         s.d = *d;
         u[0] = s.u16[3];
     }
 
     inline void write_4(uint32_t *u, const double *const d) {
-        Seg_32 s;
+        Seg_32 s{};
         s.d = *d;
         u[0] = s.u32[1];
     }
 
     inline void write_6(uint16_t *u, const double *const d) {
-        Seg_16 s;
+        Seg_16 s{};
         s.d = *d;
         u[0] = s.u16[3];
         u[1] = s.u16[2];

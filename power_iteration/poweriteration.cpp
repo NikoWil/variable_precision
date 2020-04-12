@@ -2,8 +2,6 @@
 // Created by niko on 11/14/19.
 //
 
-#include <limits>
-
 #include "../spmv/spmv_fixed.h"
 #include "../segmentation/seg_uint.h"
 #include "pi_util.h"
@@ -14,9 +12,6 @@ std::pair<bool, int> local::power_iteration(const CSR &matrix, const std::vector
     curr = x;
     std::vector<double> next(x.size(), 0.);
 
-    double curr_norm_diff{std::numeric_limits<double>::infinity()};
-    double next_norm_diff{0};
-
     // Ignore the last 3.something digits of precision
     const double epsilon = pow(2, -52) * 10;
 
@@ -26,36 +21,21 @@ std::pair<bool, int> local::power_iteration(const CSR &matrix, const std::vector
         // Calculate z_{k+1} = A * y_k
         fixed::spmv(matrix, curr, next);
 
-        // Calculate Rayleigh-Quotient as y_k^H * z_{k+1}
-        const double rayleigh = dot(curr, next);
         const auto next_copy = next;
 
         // Normalize our vector
-        const bool normalized = normalize(next);
+        const bool normalized = normalize<2>(next);
         if (!normalized) { // NaN NaN NaN NaN NaN NaN BATMAN!
             break;
         }
 
-        // Calculate residual
-        const auto ev_vector = scalar(next, rayleigh);
-
-        // Check for finish condition
-        next_norm_diff = 0;
+        // Check for termination
+        double norm_diff = 0;
         for (size_t k{0}; k < next.size(); ++k) {
-            next_norm_diff += std::abs(next[k] - curr[k]);
+            norm_diff += std::abs(next[k] - curr[k]);
         }
 
-        // Done if: we are suddenly taking bigger steps OR we are close enough
-        // TODO: is 'suddenly taking bigger steps' an okay condition?
-        //  Nope. It's not. How to improve it?
-        //  -->> Residual?
-        //done = next_norm_diff > curr_norm_diff;
-        /*if (next_norm_diff > curr_norm_diff) {
-          std::cout << "normdiff increasing! Curr: " << curr_norm_diff << ", next: " << next_norm_diff << "\n";
-        }*/
-        curr_norm_diff = next_norm_diff;
-
-        done = done || curr_norm_diff < epsilon;
+        done = done || norm_diff < epsilon;
 
         std::swap(next, curr);
         ++i;
@@ -141,7 +121,7 @@ namespace distributed {
             const double epsilon = pow(2, -52) * 10;
 
             std::vector<double> curr = initial;
-            bool initial_non_zero = normalize(curr);
+            bool initial_non_zero = normalize<2>(curr);
             if (!initial_non_zero) {
                 return std::make_pair(false, 0);
             }
@@ -165,7 +145,7 @@ namespace distributed {
                 const auto next_copy = next;
 
                 // Normalize z_{k+1} to get y_{k+1}
-                const bool normalized = normalize(next);
+                const bool normalized = normalize<2>(next);
                 if (!normalized) { // NaN NaN NaN NaN NaN NaN BATMAN!
                     std::cout << "NaN NaN NaN NaN NaN NaN BATMAN!\n";
                     break;
@@ -277,7 +257,7 @@ namespace distributed {
             const double epsilon = pow(2, -4) * 10;
 
             std::vector<double> curr = initial;
-            bool initial_non_zero = normalize(curr);
+            bool initial_non_zero = normalize<2>(curr);
             if (!initial_non_zero) {
                 return std::make_pair(false, 0);
             }
@@ -305,7 +285,7 @@ namespace distributed {
                 // Save z_{k+1} for residual
                 const auto next_copy = next;
                 // Normalize z_{k+1} to get y_{k+1}
-                const bool normalized = normalize(next);
+                const bool normalized = normalize<2>(next);
                 if (!normalized) { // NaN NaN NaN NaN NaN NaN BATMAN!
                     std::cout << "NaN NaN NaN NaN NaN NaN BATMAN!\n";
                     break;
@@ -412,7 +392,7 @@ namespace distributed {
             const double epsilon = pow(2, -20) * 10;
 
             std::vector<double> curr = initial;
-            bool initial_non_zero = normalize(curr);
+            bool initial_non_zero = normalize<2>(curr);
             if (!initial_non_zero) {
                 return std::make_pair(false, 0);
             }
@@ -440,7 +420,7 @@ namespace distributed {
                 // Save z_{k+1} for residual
                 const auto next_copy = next;
                 // Normalize z_{k+1} to get y_{k+1}
-                const bool normalized = normalize(next);
+                const bool normalized = normalize<2>(next);
                 if (!normalized) { // NaN NaN NaN NaN NaN NaN BATMAN!
                     std::cout << "NaN NaN NaN NaN NaN NaN BATMAN!\n";
                     break;
@@ -547,7 +527,7 @@ namespace distributed {
             const double epsilon = pow(2, -36) * 10;
 
             std::vector<double> curr = initial;
-            bool initial_non_zero = normalize(curr);
+            bool initial_non_zero = normalize<2>(curr);
             if (!initial_non_zero) {
                 return std::make_pair(false, 0);
             }
@@ -579,7 +559,7 @@ namespace distributed {
                 // Save z_{k+1} for residual
                 const auto next_copy = next;
                 // Normalize z_{k+1} to get y_{k+1}
-                const bool normalized = normalize(next);
+                const bool normalized = normalize<2>(next);
                 if (!normalized) { // NaN NaN NaN NaN NaN NaN BATMAN!
                     std::cout << "NaN NaN NaN NaN NaN NaN BATMAN!\n";
                     break;
