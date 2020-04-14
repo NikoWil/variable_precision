@@ -13,7 +13,7 @@ void pagerank::fixed::spmv(const CSR &matrix, const std::vector<double> &x, std:
            "pagerank::fixed::spmv Wrong dimension of y in Ax = y");
 
     int num_rows = static_cast<int>(matrix.rowptr().size() - 1);
-//#pragma omp parallel for default(none) shared(matrix, x, y, num_rows, c)
+#pragma omp parallel for default(none) shared(matrix, x, y, num_rows, c)
     for (int row = 0; row < num_rows; ++row) {
         double sum = 0.0;   // calculate M * rank
         for (auto j = matrix.rowptr().at(row); j < matrix.rowptr().at(row + 1); j++) {
@@ -91,12 +91,4 @@ pagerank::seg::spmv_6(const CSR &matrix, const std::vector<std::uint16_t> &x, st
         sum = c * sum + (1 - c) / static_cast<double>(matrix.num_cols());
         seg_uint::write_6(&y.at(3 * row), &sum);
     }
-
-    /*std::cout << "y:\n\t";
-    for (size_t i{0}; i < y.size(); i += 3) {
-        double val;
-        seg_uint::read_6(&y.at(i), &val);
-        std::cout << val << " ";
-    }
-    std::cout << "\n";//*/
 }
