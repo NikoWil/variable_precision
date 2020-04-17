@@ -100,7 +100,15 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(comm, &comm_size);
     MPI_Comm_rank(comm, &rank);
 
-    test_convergence();
+    //test_convergence();
+    const int n{5};
+    const double d{0.4};
+
+    std::vector<int> rowcnt;
+    std::vector<int> start_row;
+    get_rowcnt_start_row(comm, n, rowcnt, start_row);
+
+    test_precision_levels(n, d, rowcnt);
 
     // benchmark_spmv(20);
 

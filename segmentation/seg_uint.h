@@ -44,9 +44,9 @@ namespace seg_uint {
     inline void read_6(const uint16_t *const u, double *d) {
         Seg_16 s{};
         s.u64 = 0;
-        s.u16[3] = u[0];
+        s.u16[3] = u[2];
         s.u16[2] = u[1];
-        s.u16[1] = u[2];
+        s.u16[1] = u[0];
         *d = s.d;
     }
 
@@ -65,9 +65,9 @@ namespace seg_uint {
     inline void write_6(uint16_t *u, const double *const d) {
         Seg_16 s{};
         s.d = *d;
-        u[0] = s.u16[3];
+        u[0] = s.u16[1];
         u[1] = s.u16[2];
-        u[2] = s.u16[1];
+        u[2] = s.u16[3];
     }
 }
 
