@@ -2,6 +2,7 @@
 // Created by khondar on 17.03.20.
 //
 
+#include <chrono>
 #include "pagerank.h"
 #include "pi_util.h"
 #include "../spmv/pr_spmv.h"
@@ -48,22 +49,12 @@ pagerank::local::pagerank(const CSR &matrix, const std::vector<double> &initial,
     return std::make_pair(done, i);
 }
 
-std::pair<bool, int>
+pagerank::pr_meta
 pagerank::fixed::pagerank(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,
                           MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit) {
-    /* preparation: asserts, get comm_size, comm_rank, etc
-             *  get rank, comm_size
-             *  calculate epsilon for precision (4 Bytes)
-             *  calculate recvdispls -> prefix sum of rowcnt
-             *
-             *  NOT HERE (currently full precision power it)
-             *    transform initial guess x to uint32_t
-             *
-             *  asserts:
-             *    rowcnt[rank] == matrix.num_rows()
-             *    x.size() == matrix.cols()
-             *    result.size() == sum(rowcnt)
-             */
+    using namespace std::chrono;
+    const auto prep_start = high_resolution_clock::now();
+
     int rank, comm_size;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &comm_size);
@@ -85,57 +76,35 @@ pagerank::fixed::pagerank(const CSR &matrix, const std::vector<double> &initial,
         assert(initial.size() == matrix.num_cols());
         assert(rowsum == matrix.num_cols());
     }
-    /*
-     * Do Power Iteration
-     *
-     * Progress iteration:
-     *  Local SpMV
-     *    seg_uint::pre_convert::spmv_4(matrix, x, ...)
-     *    -> local slice of A * y_k = z_{k+1}
-     *
-     *  Distribute results (MPI_Allgatherv)
-     *    -> local copy of full z_{k+1}
-     *    int MPI_Allgatherv(const void *sendbuf, int sendcount,
-     *        MPI_Datatype sendtype, void *recvbuf, const int recvcounts[],
-     *        const int displs[], MPI_Datatype recvtype, MPI_Comm comm)
-     *
-     *    MPI_Allgatherv(partial_result.data(), rowcnt.at(rank), MPI_UINT32_T,
-     *                   new_result.data(), rowcnt.data(), recvdispls.data(), MPI_UINT32_T, comm);
-     *
-     * Check stop conditions: => do asynchronously or not?
-     *  calculate rayleigh quotient  (needs un_normalized z_{k+1})
-     *    -> rho_k = y_k^H * z_{k+1} = y_k^H * A * y_k
-     *  normalize result
-     *    -> y_{k+1} = 1 / ||z_{k+1}|| * z_{k+1}
-     *
-     *  Potentially calculate asynchronously with values from previous iteration, while Allgatherv is taking place calculate norm-diff
-     *    -> norm_diff = | y_k - y_{k+1} |
-     *  calculate residual
-     *    -> || y_{k+1} * rho_k - y_{k+1} ||
-     *
-     *  stop depending on norm_diff, residual
-     */
     const double epsilon = pow(2, -52) * 10;
 
     std::vector<double> curr = initial;
     bool initial_non_zero = normalize<1>(curr);
     if (!initial_non_zero) {
-        return std::make_pair(false, 0);
+        return {false, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
     }
 
     std::vector<double> next(initial.size());
     std::vector<double> partial_result(rowcnt.at(rank));
 
-    bool done = false;
+    bool converged = false;
     int i{0};
-    while (!done && i < iteration_limit) {
+
+    const auto prep_end = high_resolution_clock::now();
+    std::vector<std::int64_t> spmv_timings;
+    std::vector<std::int64_t> agv_timings;
+    std::vector<std::int64_t> overhead_timings;
+    while (!converged && i < iteration_limit) {
         // Calculate z_{k+1} = A * y_k
-        //print_vector(curr, "curr");
+        const auto spmv_start = high_resolution_clock::now();
         pagerank::fixed::spmv(matrix, curr, partial_result, c);
+        const auto spmv_end = high_resolution_clock::now();
+        const auto agv_start = high_resolution_clock::now();
         MPI_Allgatherv(partial_result.data(), rowcnt.at(rank), MPI_DOUBLE, next.data(), rowcnt.data(),
                        recvdispls.data(), MPI_DOUBLE, comm);
-        //print_vector(next, "next");
+        const auto agv_end = high_resolution_clock::now();
 
+        const auto overhead_start = high_resolution_clock::now();
         // Normalize z_{k+1} to get y_{k+1}
         const bool normalized = normalize<1>(next);
         if (!normalized) { // NaN NaN NaN NaN NaN NaN BATMAN!
@@ -149,19 +118,29 @@ pagerank::fixed::pagerank(const CSR &matrix, const std::vector<double> &initial,
             norm_diff += std::abs(next[k] - curr[k]);
         }
 
-        done = norm_diff < epsilon;
+        converged = norm_diff < epsilon;
 
         std::swap(next, curr);
         ++i;
-    }
+        const auto overhead_end = high_resolution_clock::now();
 
+        // calculate all time measurements
+        spmv_timings.push_back(duration_cast<nanoseconds>(spmv_end - spmv_start).count());
+        agv_timings.push_back(duration_cast<nanoseconds>(agv_end - agv_start).count());
+        overhead_timings.push_back(duration_cast<nanoseconds>(overhead_end - overhead_start).count());
+    }
     std::swap(curr, result);
-    return std::make_pair(done, i);
+
+    const auto prep_time = duration_cast<nanoseconds>(prep_end - prep_start).count();
+    return {converged, i, prep_time, spmv_timings, agv_timings, overhead_timings};
 }
 
-std::pair<bool, int> pagerank::seg::pagerank_2(const CSR &matrix, const std::vector<std::uint16_t> &initial,
-                                               std::vector<std::uint16_t> &result, double c, MPI_Comm comm,
-                                               const std::vector<int> &rowcnt, int iteration_limit) {
+pagerank::pr_meta pagerank::seg::pagerank_2(const CSR &matrix, const std::vector<std::uint16_t> &initial,
+                                            std::vector<std::uint16_t> &result, double c, MPI_Comm comm,
+                                            const std::vector<int> &rowcnt, int iteration_limit) {
+    using namespace std::chrono;
+    const auto prep_start = high_resolution_clock::now();
+
     int rank, comm_size;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &comm_size);
@@ -184,19 +163,29 @@ std::pair<bool, int> pagerank::seg::pagerank_2(const CSR &matrix, const std::vec
     std::vector<uint16_t> curr = initial;
     bool initial_non_zero = normalize_2<1>(curr);
     if (!initial_non_zero) {
-        return std::make_pair(false, 0);
+        return {false, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
     }
     result.clear();
     result.resize(initial.size());
     std::vector<uint16_t> partial_result(rowcnt.at(rank));
 
-    bool done = false;
+    bool converged = false;
     int i{0};
-    while (!done && i < iteration_limit) {
+
+    const auto prep_end = high_resolution_clock::now();
+    std::vector<std::int64_t> spmv_timings;
+    std::vector<std::int64_t> agv_timings;
+    std::vector<std::int64_t> overhead_timings;
+    while (!converged && i < iteration_limit) {
+        const auto spmv_start = high_resolution_clock::now();
         seg::spmv_2(matrix, curr, partial_result, c);
+        const auto spmv_end = high_resolution_clock::now();
+        const auto agv_start = high_resolution_clock::now();
         MPI_Allgatherv(partial_result.data(), rowcnt.at(rank), MPI_UINT16_T, result.data(),
                        rowcnt.data(), recvdispls.data(), MPI_UINT16_T, comm);
+        const auto agv_end = high_resolution_clock::now();
 
+        const auto overhead_start = high_resolution_clock::now();
         // Normalize z_{k+1} to get y_{k+1}
         const bool normalized = normalize_2<1>(result);
         if (!normalized) { // NaN NaN NaN NaN NaN NaN BATMAN!
@@ -211,19 +200,29 @@ std::pair<bool, int> pagerank::seg::pagerank_2(const CSR &matrix, const std::vec
             seg_uint::read_2(&curr[k], &val_2);
             norm_diff += std::abs(val_1 - val_2);
         }
-        done = norm_diff < epsilon; // && residual < epsilon;
+        converged = norm_diff < epsilon; // && residual < epsilon;
 
         std::swap(result, curr);
         ++i;
-    }
+        const auto overhead_end = high_resolution_clock::now();
 
+        // calculate all time measurements
+        spmv_timings.push_back(duration_cast<nanoseconds>(spmv_end - spmv_start).count());
+        agv_timings.push_back(duration_cast<nanoseconds>(agv_end - agv_start).count());
+        overhead_timings.push_back(duration_cast<nanoseconds>(overhead_end - overhead_start).count());
+    }
     std::swap(curr, result);
-    return std::make_pair(done, i);
+
+    const auto prep_time = duration_cast<nanoseconds>(prep_end - prep_start).count();
+    return {converged, i, prep_time, spmv_timings, agv_timings, overhead_timings};
 }
 
-std::pair<bool, int> pagerank::seg::pagerank_4(const CSR &matrix, const std::vector<std::uint32_t> &initial,
-                                               std::vector<std::uint32_t> &result, double c, MPI_Comm comm,
-                                               const std::vector<int> &rowcnt, int iteration_limit) {
+pagerank::pr_meta pagerank::seg::pagerank_4(const CSR &matrix, const std::vector<std::uint32_t> &initial,
+                                            std::vector<std::uint32_t> &result, double c, MPI_Comm comm,
+                                            const std::vector<int> &rowcnt, int iteration_limit) {
+    using namespace std::chrono;
+    const auto prep_start = high_resolution_clock::now();
+
     int rank, comm_size;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &comm_size);
@@ -246,20 +245,29 @@ std::pair<bool, int> pagerank::seg::pagerank_4(const CSR &matrix, const std::vec
     std::vector<std::uint32_t> curr = initial;
     bool initial_non_zero = normalize_4<1>(curr);
     if (!initial_non_zero) {
-        return std::make_pair(false, 0);
+        return {false, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
     }
     result.clear();
     result.resize(initial.size());
 
     std::vector<std::uint32_t> partial_result(rowcnt.at(rank));
 
-    bool done = false;
+    bool converged = false;
     int i{0};
-    while (!done && i < iteration_limit) {
+
+    const auto prep_end = high_resolution_clock::now();
+    std::vector<std::int64_t> spmv_timings;
+    std::vector<std::int64_t> agv_timings;
+    std::vector<std::int64_t> overhead_timings;
+    while (!converged && i < iteration_limit) {
+        const auto spmv_start = high_resolution_clock::now();
         seg::spmv_4(matrix, curr, partial_result, c);
+        const auto spmv_end = high_resolution_clock::now();
+        const auto agv_start = high_resolution_clock::now();
         MPI_Allgatherv(partial_result.data(), rowcnt.at(rank), MPI_UINT32_T, result.data(),
                        rowcnt.data(), recvdispls.data(), MPI_UINT32_T, comm);
-
+        const auto agv_end = high_resolution_clock::now();
+        const auto overhead_start = high_resolution_clock::now();
         // Normalize z_{k+1} to get y_{k+1}
         const bool normalized = normalize_4<1>(result);
         if (!normalized) { // NaN NaN NaN NaN NaN NaN BATMAN!
@@ -276,19 +284,29 @@ std::pair<bool, int> pagerank::seg::pagerank_4(const CSR &matrix, const std::vec
             norm_diff += std::abs(val_1 - val_2);
         }
 
-        done = norm_diff < epsilon; // && residual < epsilon;
+        converged = norm_diff < epsilon; // && residual < epsilon;
 
         std::swap(result, curr);
         ++i;
-    }
+        const auto overhead_end = high_resolution_clock::now();
 
+        // calculate all time measurements
+        spmv_timings.push_back(duration_cast<nanoseconds>(spmv_end - spmv_start).count());
+        agv_timings.push_back(duration_cast<nanoseconds>(agv_end - agv_start).count());
+        overhead_timings.push_back(duration_cast<nanoseconds>(overhead_end - overhead_start).count());
+    }
     std::swap(curr, result);
-    return std::make_pair(done, i);
+
+    const auto prep_time = duration_cast<nanoseconds>(prep_end - prep_start).count();
+    return {converged, i, prep_time, spmv_timings, agv_timings, overhead_timings};
 }
 
-std::pair<bool, int> pagerank::seg::pagerank_6(const CSR &matrix, const std::vector<std::uint16_t> &initial,
-                                               std::vector<std::uint16_t> &result, double c, MPI_Comm comm,
-                                               const std::vector<int> &rowcnt, int iteration_limit) {
+pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector<std::uint16_t> &initial,
+                                            std::vector<std::uint16_t> &result, double c, MPI_Comm comm,
+                                            const std::vector<int> &rowcnt, int iteration_limit) {
+    using namespace std::chrono;
+    const auto prep_start = high_resolution_clock::now();
+
     int rank, comm_size;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &comm_size);
@@ -314,43 +332,28 @@ std::pair<bool, int> pagerank::seg::pagerank_6(const CSR &matrix, const std::vec
     std::vector<std::uint16_t> curr = initial;
     bool initial_non_zero = normalize_6<1>(curr);
     if (!initial_non_zero) {
-        return std::make_pair(false, 0);
+        return {false, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
     }
     result.clear();
     result.resize(initial.size());
 
     std::vector<std::uint16_t> partial_result(rowcnt.at(rank) * 3);
-    bool done = false;
+    bool converged = false;
     int i{0};
-    while (!done && i < iteration_limit) {
-        /*std::cout << "curr:\n\t";
-        for (size_t k{0}; k < initial.size(); k += 3) {
-            double val;
-            seg_uint::read_6(&curr.at(k), &val);
-            std::cout << val << " ";
-        }
-        std::cout << "\n";//*/
 
+    const auto prep_end = high_resolution_clock::now();
+    std::vector<std::int64_t> spmv_timings;
+    std::vector<std::int64_t> agv_timings;
+    std::vector<std::int64_t> overhead_timings;
+    while (!converged && i < iteration_limit) {
+        const auto spmv_start = high_resolution_clock::now();
         seg::spmv_6(matrix, curr, partial_result, c);
+        const auto spmv_end = high_resolution_clock::now();
+        const auto agv_start = high_resolution_clock::now();
         MPI_Allgatherv(partial_result.data(), 3 * rowcnt.at(rank), MPI_UINT16_T, result.data(),
                        recvcounts.data(), recvdispls.data(), MPI_UINT16_T, comm);
-
-        /*std::cout << "partial_result:\n\t";
-        for (size_t k{0}; k < partial_result.size(); k += 3) {
-            double val;
-            seg_uint::read_6(&partial_result.at(k), &val);
-            std::cout << val << " ";
-        }
-        std::cout << "\n";
-
-        std::cout << "result:\n\t";
-        for (size_t k{0}; k < result.size(); k += 3) {
-            double val;
-            seg_uint::read_6(&result.at(k), &val);
-            std::cout << val << " ";
-        }
-        std::cout << "\n";//*/
-
+        const auto agv_end = high_resolution_clock::now();
+        const auto overhead_start = high_resolution_clock::now();
         // Normalize z_{k+1} to get y_{k+1}
         const bool normalized = normalize_6<1>(result);
         if (!normalized) { // NaN NaN NaN NaN NaN NaN BATMAN!
@@ -367,17 +370,24 @@ std::pair<bool, int> pagerank::seg::pagerank_6(const CSR &matrix, const std::vec
             norm_diff += std::abs(val_1 - val_2);
         }
 
-        done = norm_diff < epsilon;
+        converged = norm_diff < epsilon;
 
         std::swap(result, curr);
         ++i;
-    }
+        const auto overhead_end = high_resolution_clock::now();
 
+        // calculate all time measurements
+        spmv_timings.push_back(duration_cast<nanoseconds>(spmv_end - spmv_start).count());
+        agv_timings.push_back(duration_cast<nanoseconds>(agv_end - agv_start).count());
+        overhead_timings.push_back(duration_cast<nanoseconds>(overhead_end - overhead_start).count());
+    }
     std::swap(curr, result);
-    return std::make_pair(done, i);
+
+    const auto prep_time = duration_cast<nanoseconds>(prep_end - prep_start).count();
+    return {converged, i, prep_time, spmv_timings, agv_timings, overhead_timings};
 }
 
-std::array<std::pair<bool, int>, 4>
+std::array<pagerank::pr_meta, 4>
 pagerank::variable::pagerank_2_4_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result,
                                      double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit) {
     const std::size_t n{result.size()};
@@ -390,7 +400,7 @@ pagerank::variable::pagerank_2_4_6_8(const CSR &matrix, const std::vector<double
     std::vector<std::uint16_t> result_2(n);
     const auto meta_2 = seg::pagerank_2(matrix, initial_2, result_2, c, comm, rowcnt, left_iterations);
 
-    left_iterations -= meta_2.second;
+    left_iterations -= meta_2.used_iterations;
 
     std::vector<std::uint32_t> initial_4(n);
     for (std::size_t i{0}; i < n; ++i) {
@@ -401,7 +411,7 @@ pagerank::variable::pagerank_2_4_6_8(const CSR &matrix, const std::vector<double
     std::vector<std::uint32_t> result_4(n);
     const auto meta_4 = seg::pagerank_4(matrix, initial_4, result_4, c, comm, rowcnt, left_iterations);
 
-    left_iterations -= meta_4.second;
+    left_iterations -= meta_4.used_iterations;
 
     std::vector<std::uint16_t> initial_6(3 * n);
     for (std::size_t i{0}; i < n; ++i) {
@@ -412,7 +422,7 @@ pagerank::variable::pagerank_2_4_6_8(const CSR &matrix, const std::vector<double
     std::vector<std::uint16_t> result_6(3 * n);
     const auto meta_6 = seg::pagerank_6(matrix, initial_6, result_6, c, comm, rowcnt, left_iterations);
 
-    left_iterations -= meta_6.second;
+    left_iterations -= meta_6.used_iterations;
 
     std::vector<double> initial_8(n);
     for (std::size_t i{0}; i < n; ++i) {
@@ -425,7 +435,7 @@ pagerank::variable::pagerank_2_4_6_8(const CSR &matrix, const std::vector<double
     return {meta_2, meta_4, meta_6, meta_8};
 }
 
-std::array<std::pair<bool, int>, 3>
+std::array<pagerank::pr_meta, 3>
 pagerank::variable::pagerank_4_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result,
                                    double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit) {
     const std::size_t n{result.size()};
@@ -438,7 +448,7 @@ pagerank::variable::pagerank_4_6_8(const CSR &matrix, const std::vector<double> 
     std::vector<std::uint32_t> result_4(n);
     const auto meta_4 = seg::pagerank_4(matrix, initial_4, result_4, c, comm, rowcnt, left_iterations);
 
-    left_iterations -= meta_4.second;
+    left_iterations -= meta_4.used_iterations;
 
     std::vector<std::uint16_t> initial_6(3 * n);
     for (std::size_t i{0}; i < n; ++i) {
@@ -449,7 +459,7 @@ pagerank::variable::pagerank_4_6_8(const CSR &matrix, const std::vector<double> 
     std::vector<std::uint16_t> result_6(3 * n);
     const auto meta_6 = seg::pagerank_6(matrix, initial_6, result_6, c, comm, rowcnt, left_iterations);
 
-    left_iterations -= meta_6.second;
+    left_iterations -= meta_6.used_iterations;
 
     std::vector<double> initial_8(n);
     for (std::size_t i{0}; i < n; ++i) {
@@ -462,7 +472,7 @@ pagerank::variable::pagerank_4_6_8(const CSR &matrix, const std::vector<double> 
     return {meta_4, meta_6, meta_8};
 }
 
-std::array<std::pair<bool, int>, 2>
+std::array<pagerank::pr_meta, 2>
 pagerank::variable::pagerank_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result,
                                  double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit) {
     const std::size_t n{result.size()};
@@ -475,7 +485,7 @@ pagerank::variable::pagerank_6_8(const CSR &matrix, const std::vector<double> &i
     std::vector<std::uint16_t> result_6(3 * n);
     const auto meta_6 = seg::pagerank_6(matrix, initial_6, result_6, c, comm, rowcnt, left_iterations);
 
-    left_iterations -= meta_6.second;
+    left_iterations -= meta_6.used_iterations;
 
     std::vector<double> initial_8(n);
     for (std::size_t i{0}; i < n; ++i) {

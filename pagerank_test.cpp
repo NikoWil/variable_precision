@@ -18,11 +18,9 @@ void test_convergence() {
     //  => 64 GB = 2 ** 36 bytes => < 16 bytes per element
     //  => we can fit 2 ** 32 elements
     //  => size^2 * density <= 2 ** 16 as requirement
-    //constexpr std::array<int, 7> sizes{64 * 1014, 128 * 1014, 256 * 1014, 512 * 1014, 1024 * 1014, 2 * 1014 * 1024, 4 * 1024 * 1024};
-    //constexpr std::array<double, 5> densities{1. / 64., 1. / 128., 1. / 256., 1. / 512., 1. / 1024};
-
-    constexpr std::array<int, 2> sizes{10, 20};
-    constexpr std::array<double, 2> densities{0.2, 0.4};
+    constexpr std::array<int, 7> sizes{64 * 1014, 128 * 1014, 256 * 1014, 512 * 1014, 1024 * 1014, 2 * 1014 * 1024,
+                                       4 * 1024 * 1024};
+    constexpr std::array<double, 5> densities{1. / 64., 1. / 128., 1. / 256., 1. / 512., 1. / 1024};
 
     constexpr double c{0.85};
 
@@ -101,8 +99,8 @@ void test_precision_levels(unsigned n, double density, const std::vector<int> &r
     const auto meta = pagerank::fixed::pagerank(transposed_slice, initial, result, c, comm, rowcnt);
 
     if (rank == 0) {
-        std::cout << "Meta information (fixed precision)\n\tconverged: " << meta.first << "\n\titerations: "
-                  << meta.second << "\n";
+        std::cout << "Meta information (fixed precision)\n\tconverged: " << meta.converged << "\n\titerations: "
+                  << meta.used_iterations << "\n";
         print_vector(result, "result");
         std::cout << "------\n";
     }
@@ -124,8 +122,8 @@ void test_precision_levels(unsigned n, double density, const std::vector<int> &r
     }
 
     if (rank == 0) {
-        std::cout << "Meta information (2 bytes)\n\tconverged: " << meta_2.first << "\n\titerations: " << meta_2.second
-                  << "\n";
+        std::cout << "Meta information (2 bytes)\n\tconverged: " << meta_2.converged << "\n\titerations: "
+                  << meta_2.used_iterations << "\n";
         print_vector(result_2_dbl, "result_2");
         std::cout << "------\n";
     }
@@ -147,8 +145,8 @@ void test_precision_levels(unsigned n, double density, const std::vector<int> &r
     }
 
     if (rank == 0) {
-        std::cout << "Meta information (4 bytes)\n\tconverged: " << meta_4.first << "\n\titerations: " << meta_4.second
-                  << "\n";
+        std::cout << "Meta information (4 bytes)\n\tconverged: " << meta_4.converged << "\n\titerations: "
+                  << meta_4.used_iterations << "\n";
         print_vector(result_4_dbl, "result_4");
         std::cout << "------\n";
     }
@@ -167,8 +165,8 @@ void test_precision_levels(unsigned n, double density, const std::vector<int> &r
     }
 
     if (rank == 0) {
-        std::cout << "Meta information (6 bytes)\n\tconverged: " << meta_6.first << "\n\titerations: " << meta_6.second
-                  << "\n";
+        std::cout << "Meta information (6 bytes)\n\tconverged: " << meta_6.converged << "\n\titerations: "
+                  << meta_6.used_iterations << "\n";
         print_vector(result_6_dbl, "result_6");
         std::cout << "------\n";
     }
@@ -182,7 +180,7 @@ void test_precision_levels(unsigned n, double density, const std::vector<int> &r
     if (rank == 0) {
         std::cout << "meta information (2, 4, 6, 8):\n";
         for (const auto m : meta_variable) {
-            std::cout << "\tconverged: " << m.first << "\titerations: " << m.second << "\n";
+            std::cout << "\tconverged: " << m.converged << "\titerations: " << m.used_iterations << "\n";
         }
         print_vector(result_variable, "result_variable");
     }

@@ -14,41 +14,49 @@
 #include "../matrix_formats/csr.hpp"
 
 namespace pagerank {
+    struct pr_meta {
+        bool converged;
+        int used_iterations;
+        std::int64_t prep_timing;
+        std::vector<std::int64_t> spmv_timings;
+        std::vector<std::int64_t> agv_timings;
+        std::vector<std::int64_t> overhead_timings;
+    };
+
     namespace local {
         std::pair<bool, int>
         pagerank(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,
                  int iteration_limit = 1000);
     }
     namespace fixed {
-        std::pair<bool, int>
-        pagerank(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,
-                 MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
+        pr_meta pagerank(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,
+                         MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
     }
 
     namespace seg {
-        std::pair<bool, int>
+        pr_meta
         pagerank_2(const CSR &matrix, const std::vector<std::uint16_t> &initial, std::vector<std::uint16_t> &result,
                    double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
 
-        std::pair<bool, int>
+        pr_meta
         pagerank_4(const CSR &matrix, const std::vector<std::uint32_t> &initial, std::vector<std::uint32_t> &result,
                    double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
 
-        std::pair<bool, int>
+        pr_meta
         pagerank_6(const CSR &matrix, const std::vector<std::uint16_t> &initial, std::vector<std::uint16_t> &result,
                    double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
     }
 
     namespace variable {
-        std::array<std::pair<bool, int>, 4>
+        std::array<pr_meta, 4>
         pagerank_2_4_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,
                          MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
 
-        std::array<std::pair<bool, int>, 3>
+        std::array<pr_meta, 3>
         pagerank_4_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,
                        MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
 
-        std::array<std::pair<bool, int>, 2>
+        std::array<pr_meta, 2>
         pagerank_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,
                      MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
     }

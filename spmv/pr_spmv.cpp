@@ -68,7 +68,7 @@ pagerank::seg::spmv_4(const CSR &matrix, const std::vector<std::uint32_t> &x, st
         }
         sum = c * sum + (1 - c) / static_cast<double>(matrix.num_cols());
         seg_uint::write_4(&y.at(row), &sum);
-    }//*/
+    }
 }
 
 void
