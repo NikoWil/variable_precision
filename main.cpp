@@ -1,10 +1,7 @@
-#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <mpi.h>
 #include <vector>
-#include <random>
-#include <chrono>
 
 #include "pi_benchmarks.h"
 #include "spmv_benchmark.h"
@@ -14,7 +11,6 @@
 #include "spmv/spmv_fixed.h"
 #include "communication.h"
 #include "spmv/pr_spmv.h"
-#include "power_iteration/pi_util.h"
 #include "pagerank_test.h"
 
 void get_rowcnt_start_row(MPI_Comm comm, unsigned num_rows, std::vector<int> &rowcnt, std::vector<int> &start_row) {
@@ -100,15 +96,7 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(comm, &comm_size);
     MPI_Comm_rank(comm, &rank);
 
-    //test_convergence();
-    const int n{5};
-    const double d{0.4};
-
-    std::vector<int> rowcnt;
-    std::vector<int> start_row;
-    get_rowcnt_start_row(comm, n, rowcnt, start_row);
-
-    test_precision_levels(n, d, rowcnt);
+    test_convergence();
 
     // benchmark_spmv(20);
 

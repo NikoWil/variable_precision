@@ -18,8 +18,15 @@ void test_convergence() {
     //  => 64 GB = 2 ** 36 bytes => < 16 bytes per element
     //  => we can fit 2 ** 32 elements
     //  => size^2 * density <= 2 ** 16 as requirement
-    constexpr std::array<int, 7> sizes{64 * 1014, 128 * 1014, 256 * 1014, 512 * 1014, 1024 * 1014, 2 * 1014 * 1024,
+    /*constexpr std::array<int, 7> sizes{64 * 1014, 128 * 1014, 256 * 1014, 512 * 1014, 1024 * 1014, 2 * 1014 * 1024,
                                        4 * 1024 * 1024};
+    constexpr std::array<double, 5> densities{1. / 64., 1. / 128., 1. / 256., 1. / 512., 1. / 1024};//*/
+
+    // TODO: generate test that can run on the laptop alone (< 6 GB?)
+    //  => 4 GB = 2^32 bytes
+    //  => we can fit 2 ^ 28 elements
+    //  => size^2 * density <= 2^14
+    constexpr std::array<int, 5> sizes{64 * 1014, 128 * 1014, 256 * 1014, 512 * 1014, 1024 * 1014};
     constexpr std::array<double, 5> densities{1. / 64., 1. / 128., 1. / 256., 1. / 512., 1. / 1024};
 
     constexpr double c{0.85};

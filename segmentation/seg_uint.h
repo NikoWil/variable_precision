@@ -8,6 +8,9 @@
 #include <cstdint>
 
 namespace {
+    static_assert(std::numeric_limits<double>::is_iec559,
+                  "IEEE 754 floating point format is required for segmentation to work");
+
     union Seg_16 {
         static_assert(sizeof(double) == 4 * sizeof(uint16_t),
                       "Double segmentation needs 4 uint16_t to be exactly 1 double size-wise");
