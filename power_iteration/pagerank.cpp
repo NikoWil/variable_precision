@@ -53,6 +53,7 @@ pagerank::pr_meta
 pagerank::fixed::pagerank(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,
                           MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit) {
     using namespace std::chrono;
+    const auto total_start = high_resolution_clock::now();
     const auto prep_start = high_resolution_clock::now();
 
     int rank, comm_size;
@@ -81,7 +82,7 @@ pagerank::fixed::pagerank(const CSR &matrix, const std::vector<double> &initial,
     std::vector<double> curr = initial;
     bool initial_non_zero = normalize<1>(curr);
     if (!initial_non_zero) {
-        return {false, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
+        return {false, 0, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
     }
 
     std::vector<double> next(initial.size());
@@ -132,13 +133,16 @@ pagerank::fixed::pagerank(const CSR &matrix, const std::vector<double> &initial,
     std::swap(curr, result);
 
     const auto prep_time = duration_cast<nanoseconds>(prep_end - prep_start).count();
-    return {converged, i, prep_time, spmv_timings, agv_timings, overhead_timings};
+    const auto total_end = high_resolution_clock::now();
+    const auto total_time = duration_cast<nanoseconds>(total_end - total_start).count();
+    return {converged, i, total_time, prep_time, spmv_timings, agv_timings, overhead_timings};
 }
 
 pagerank::pr_meta pagerank::seg::pagerank_2(const CSR &matrix, const std::vector<std::uint16_t> &initial,
                                             std::vector<std::uint16_t> &result, double c, MPI_Comm comm,
                                             const std::vector<int> &rowcnt, int iteration_limit) {
     using namespace std::chrono;
+    const auto total_start = high_resolution_clock::now();
     const auto prep_start = high_resolution_clock::now();
 
     int rank, comm_size;
@@ -163,7 +167,7 @@ pagerank::pr_meta pagerank::seg::pagerank_2(const CSR &matrix, const std::vector
     std::vector<uint16_t> curr = initial;
     bool initial_non_zero = normalize_2<1>(curr);
     if (!initial_non_zero) {
-        return {false, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
+        return {false, 0, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
     }
     result.clear();
     result.resize(initial.size());
@@ -214,13 +218,16 @@ pagerank::pr_meta pagerank::seg::pagerank_2(const CSR &matrix, const std::vector
     std::swap(curr, result);
 
     const auto prep_time = duration_cast<nanoseconds>(prep_end - prep_start).count();
-    return {converged, i, prep_time, spmv_timings, agv_timings, overhead_timings};
+    const auto total_end = high_resolution_clock::now();
+    const auto total_time = duration_cast<nanoseconds>(total_end - total_start).count();
+    return {converged, i, total_time, prep_time, spmv_timings, agv_timings, overhead_timings};
 }
 
 pagerank::pr_meta pagerank::seg::pagerank_4(const CSR &matrix, const std::vector<std::uint32_t> &initial,
                                             std::vector<std::uint32_t> &result, double c, MPI_Comm comm,
                                             const std::vector<int> &rowcnt, int iteration_limit) {
     using namespace std::chrono;
+    const auto total_start = high_resolution_clock::now();
     const auto prep_start = high_resolution_clock::now();
 
     int rank, comm_size;
@@ -245,7 +252,7 @@ pagerank::pr_meta pagerank::seg::pagerank_4(const CSR &matrix, const std::vector
     std::vector<std::uint32_t> curr = initial;
     bool initial_non_zero = normalize_4<1>(curr);
     if (!initial_non_zero) {
-        return {false, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
+        return {false, 0, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
     }
     result.clear();
     result.resize(initial.size());
@@ -298,13 +305,16 @@ pagerank::pr_meta pagerank::seg::pagerank_4(const CSR &matrix, const std::vector
     std::swap(curr, result);
 
     const auto prep_time = duration_cast<nanoseconds>(prep_end - prep_start).count();
-    return {converged, i, prep_time, spmv_timings, agv_timings, overhead_timings};
+    const auto total_end = high_resolution_clock::now();
+    const auto total_time = duration_cast<nanoseconds>(total_end - total_start).count();
+    return {converged, i, total_time, prep_time, spmv_timings, agv_timings, overhead_timings};
 }
 
 pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector<std::uint16_t> &initial,
                                             std::vector<std::uint16_t> &result, double c, MPI_Comm comm,
                                             const std::vector<int> &rowcnt, int iteration_limit) {
     using namespace std::chrono;
+    const auto total_start = high_resolution_clock::now();
     const auto prep_start = high_resolution_clock::now();
 
     int rank, comm_size;
@@ -332,7 +342,7 @@ pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector
     std::vector<std::uint16_t> curr = initial;
     bool initial_non_zero = normalize_6<1>(curr);
     if (!initial_non_zero) {
-        return {false, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
+        return {false, 0, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
     }
     result.clear();
     result.resize(initial.size());
@@ -384,7 +394,9 @@ pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector
     std::swap(curr, result);
 
     const auto prep_time = duration_cast<nanoseconds>(prep_end - prep_start).count();
-    return {converged, i, prep_time, spmv_timings, agv_timings, overhead_timings};
+    const auto total_end = high_resolution_clock::now();
+    const auto total_time = duration_cast<nanoseconds>(total_end - total_start).count();
+    return {converged, i, total_time, prep_time, spmv_timings, agv_timings, overhead_timings};
 }
 
 std::array<pagerank::pr_meta, 4>
@@ -496,4 +508,32 @@ pagerank::variable::pagerank_6_8(const CSR &matrix, const std::vector<double> &i
     const auto meta_8 = fixed::pagerank(matrix, initial_8, result, c, comm, rowcnt, left_iterations);
 
     return {meta_6, meta_8};
+}
+
+void pagerank::print_meta(const pagerank::pr_meta &meta) {
+    std::cout << "converged " << meta.converged << "\n"
+              << "iterations " << meta.used_iterations << "\n"
+              << "prep_timing " << meta.prep_timing << "\n";
+    print_vector(meta.spmv_timings, "spmv_timings");
+    print_vector(meta.agv_timings, "agv_timings");
+    print_vector(meta.overhead_timings, "overhead_timings");
+}
+
+void pagerank::print_fixed(const pagerank::pr_meta &meta) {
+    std::cout << "fixed\n";
+    print_meta(meta);
+    std::cout << "\n";
+}
+
+void pagerank::print_2_4_6_8(const std::array<pagerank::pr_meta, 4> &meta) {
+    std::cout << "variable_2_4_6_8\n";
+    std::cout << "2_byte_precision\n";
+    print_meta(meta[0]);
+    std::cout << "4_byte_precision\n";
+    print_meta(meta[1]);
+    std::cout << "6_byte_precision\n";
+    print_meta(meta[2]);
+    std::cout << "8_byte_precision\n";
+    print_meta(meta[3]);
+    std::cout << "\n";
 }

@@ -11,7 +11,7 @@
 
 namespace {
     template <int N>
-    double norm(const std::vector<double> &v) {
+    inline double norm(const std::vector<double> &v) {
         double sum{0.};
         for (const auto e : v) {
             sum += std::pow(std::abs(e), N);
@@ -21,7 +21,7 @@ namespace {
     }
 
     template <int N>
-    double norm_2(const std::vector<std::uint16_t> &v) {
+    inline double norm_2(const std::vector<std::uint16_t> &v) {
         double sum{0.};
         for (size_t i{0}; i < v.size(); ++i) {
             double val;
@@ -33,7 +33,7 @@ namespace {
     }
 
     template <int N>
-    double norm_4(const std::vector<std::uint32_t> &v) {
+    inline double norm_4(const std::vector<std::uint32_t> &v) {
         double sum{0.};
         for (size_t i{0}; i < v.size(); ++i) {
             double val;
@@ -45,7 +45,7 @@ namespace {
     }
 
     template <int N>
-    double norm_6(const std::vector<std::uint16_t> &v) {
+    inline double norm_6(const std::vector<std::uint16_t> &v) {
         assert(v.size() % 3 == 0 && "norm_6 vector size has to be multiple of 3");
 
         double sum{0.};
@@ -59,7 +59,7 @@ namespace {
 }
 
 template <int N>
-bool normalize(std::vector<double> &v) {
+inline bool normalize(std::vector<double> &v) {
     const auto norm_fac = norm<N>(v);
     if (norm_fac == 0) {
         return false;
@@ -72,7 +72,7 @@ bool normalize(std::vector<double> &v) {
 }
 
 template <int N>
-bool normalize_2(std::vector<std::uint16_t> &v) {
+inline bool normalize_2(std::vector<std::uint16_t> &v) {
     const auto norm_fac = norm_2<N>(v);
     if (norm_fac == 0) {
         return false;
@@ -88,7 +88,7 @@ bool normalize_2(std::vector<std::uint16_t> &v) {
 }
 
 template <int N>
-bool normalize_4(std::vector<std::uint32_t> &v) {
+inline bool normalize_4(std::vector<std::uint32_t> &v) {
     const auto norm_fac = norm_4<N>(v);
     if (norm_fac == 0) {
         return false;
@@ -104,7 +104,7 @@ bool normalize_4(std::vector<std::uint32_t> &v) {
 }
 
 template <int N>
-bool normalize_6(std::vector<std::uint16_t> &v) {
+inline bool normalize_6(std::vector<std::uint16_t> &v) {
     const auto norm_fac = norm_6<N>(v);
     if (norm_fac == 0) {
         return false;

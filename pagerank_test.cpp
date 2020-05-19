@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <iomanip>
 
 #include "pagerank_test.h"
@@ -186,9 +185,102 @@ void test_precision_levels(unsigned n, double density, const std::vector<int> &r
 
     if (rank == 0) {
         std::cout << "meta information (2, 4, 6, 8):\n";
-        for (const auto m : meta_variable) {
+        for (const auto &m : meta_variable) {
             std::cout << "\tconverged: " << m.converged << "\titerations: " << m.used_iterations << "\n";
         }
         print_vector(result_variable, "result_variable");
+    }
+}
+
+void pr_performance_test(MPI_Comm comm) {
+    int comm_size, rank;
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Comm_rank(comm, &rank);
+    constexpr int root{0};
+
+    /*constexpr std::array<std::uint32_t, 7> sizes{1024, 2 * 1024, 4 * 1024, 8 * 1024, 16 * 1024, 32 * 1024, 64 * 1024};
+    constexpr std::array<double, 5> densities{1. / 64., 1. / 128., 1. / 256., 1. / 512., 1. / 1024.};
+    constexpr double c{0.85};
+
+    constexpr std::uint32_t num_tests{10};
+    constexpr std::uint32_t num_samples{30};*/
+
+    constexpr std::array<std::uint32_t, 2> sizes{10, 20};
+    constexpr std::array<double, 2> densities{0.5, 0.6};
+    constexpr double c{0.85};
+
+    constexpr std::uint32_t num_tests{2};
+    constexpr std::uint32_t num_samples{2};
+
+    if (rank == root) {
+        std::cout << "num_tests " << num_tests << "\n";
+        std::cout << "num_samples " << num_samples << "\n";
+    }
+    MPI_Barrier(comm);
+
+    if (rank == root) {
+        std::cout << "num_tests " << num_tests << "\n";
+        std::cout << "num_samples " << num_samples << "\n";
+    }
+    MPI_Barrier(comm);
+
+    double sum{0.};
+
+    for (const auto s : sizes) {
+        for (const auto d : densities) {
+            for (std::uint32_t test_num{0}; test_num < num_tests; ++test_num) {
+                // generate a new matrix
+                const std::uint32_t seed{std::random_device{}()};
+                std::mt19937 rng{seed};
+                const auto matrix = CSR::row_stochastic(s, d, rng);
+                const auto transposed = CSR::transpose(matrix);
+                const auto matrix_slice = distribute_matrix(transposed, comm, root);
+
+                std::vector<int> rowcnt, start_row;
+                get_rowcnt_start_row(comm, s, rowcnt, start_row);
+
+                std::vector<pagerank::pr_meta> meta_fixed;
+                meta_fixed.reserve(num_samples);
+                std::vector<std::array<pagerank::pr_meta, 4>> meta_2_4_6_8;
+                meta_2_4_6_8.reserve(num_samples);
+
+                std::vector<double> initial(s, 1.);
+                std::vector<double> result(s);
+                for (std::uint32_t sample{0}; sample < num_samples; ++sample) {
+                    // perform pagerank, fixed precision
+                    const auto meta = pagerank::fixed::pagerank(matrix_slice, initial, result, c, comm, rowcnt);
+                    meta_fixed.push_back(std::move(meta));
+
+                    sum += result.at(0);
+                    initial.at(0)++;
+                }
+
+                for (std::uint32_t sample{0}; sample < num_samples; ++sample) {
+                    // perform pagerank, variable precision
+                    const auto meta = pagerank::variable::pagerank_2_4_6_8(matrix_slice, initial, result, c, comm, rowcnt);
+                    meta_2_4_6_8.push_back(std::move(meta));
+
+                    sum += result.at(0);
+                    initial.at(0)++;
+                }
+
+                //TODO: print meta information somehow?
+                if (rank == root) {
+                    std::cout << "seed " << seed << "\n";
+
+                    for (const auto& m : meta_fixed) {
+                        pagerank::print_fixed(m);
+                    }
+                    for (const auto &m : meta_2_4_6_8) {
+                        pagerank::print_2_4_6_8(m);
+                    }
+
+                    std::cout << "------\n\n";
+                }
+            }
+        }
+    }
+    if (rank == 0) {
+        std::cout << "sum " << sum << "\n";
     }
 }

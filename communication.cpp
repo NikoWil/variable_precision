@@ -24,6 +24,24 @@ void bcast_vector(std::vector<double> &v, MPI_Comm comm, int root) {
     MPI_Bcast(v.data(), size, MPI_DOUBLE, root, comm);
 }
 
+void get_rowcnt_start_row(MPI_Comm comm, unsigned num_rows, std::vector<int> &rowcnt, std::vector<int> &start_row) {
+    int comm_size;
+    MPI_Comm_size(comm, &comm_size);
+
+    rowcnt.clear();
+    start_row.clear();
+    start_row.push_back(0);
+
+    for (int i{0}; i < comm_size; ++i) {
+        unsigned start = (num_rows * i) / comm_size;
+        unsigned end = (num_rows * (i + 1)) / comm_size;
+        rowcnt.push_back(end - start);
+
+        const auto last_start = start_row.back();
+        start_row.push_back(last_start + rowcnt.back());
+    }
+}
+
 CSR distribute_matrix(const CSR &matrix, MPI_Comm comm, int root) {
     int rank, comm_size;
     MPI_Comm_rank(comm, &rank);
@@ -107,7 +125,7 @@ CSR distribute_matrix(const CSR &matrix, MPI_Comm comm, int root) {
     return CSR{values, colidx, rowptr, metadata.at(0)};
 }
 
-void
+/*void
 gather_results(char *new_partial, char *old_partial, std::int32_t num_values_partial, std::int32_t num_values_total,
                std::int32_t bytes_per_val, char *out,
                std::int32_t out_bytes, const std::vector<std::int32_t> &rowcnt, MPI_Comm comm) {
@@ -180,4 +198,4 @@ gather_results(char *new_partial, char *old_partial, std::int32_t num_values_par
 
         out_start_idx += rowcnt.at(i) * bytes_per_val;
     }
-}
+}*/

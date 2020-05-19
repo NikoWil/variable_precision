@@ -17,11 +17,18 @@ namespace pagerank {
     struct pr_meta {
         bool converged;
         int used_iterations;
+        std::int64_t total_time;
         std::int64_t prep_timing;
         std::vector<std::int64_t> spmv_timings;
         std::vector<std::int64_t> agv_timings;
         std::vector<std::int64_t> overhead_timings;
     };
+
+    void print_meta(const pagerank::pr_meta &meta);
+
+    void print_fixed(const pagerank::pr_meta &meta);
+
+    void print_2_4_6_8(const std::array<pagerank::pr_meta, 4> &meta);
 
     namespace local {
         std::pair<bool, int>

@@ -20,10 +20,10 @@ FIND_PACKAGE(MPI REQUIRED)
 INCLUDE_DIRECTORIES(${MPI_INCLUDE_PATH})
 LINK_LIBRARIES(${MPI_LIBRARIES})
 
-ADD_EXECUTABLE(code spmv_benchmark.cpp spmv_benchmark.h spmv/pr_spmv.cpp spmv/pr_spmv.h power_iteration/pagerank.cpp power_iteration/pagerank.h power_iteration/pi_util.h pagerank_test.cpp pagerank_test.h)
-TARGET_SOURCES(code PRIVATE main.cpp util/util.hpp
-        matrix_formats/csr.hpp matrix_formats/csr.cpp communication.cpp communication.h
-        segmentation/seg_uint.h spmv/spmv_fixed.cpp spmv/spmv_fixed.h power_iteration/poweriteration.cpp power_iteration/poweriteration.h
+ADD_EXECUTABLE(code spmv_benchmark.cpp spmv_benchmark.h spmv/pr_spmv.cpp spmv/pr_spmv.h power_iteration/pagerank.cpp
+        power_iteration/pagerank.h power_iteration/pi_util.h pagerank_test.cpp pagerank_test.h main.cpp util/util.hpp
+        matrix_formats/csr.hpp matrix_formats/csr.cpp communication.cpp communication.h segmentation/seg_uint.h
+        spmv/spmv_fixed.cpp spmv/spmv_fixed.h power_iteration/poweriteration.cpp power_iteration/poweriteration.h
         pi_benchmarks.cpp pi_benchmarks.h)
 
 IF(MPI_COMPILE_FLAGS)
@@ -39,7 +39,7 @@ IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     TARGET_COMPILE_OPTIONS(code PRIVATE /W3 /WX /OpenMP)
 ELSEIF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     MESSAGE("GCC detected")
-    TARGET_COMPILE_OPTIONS(code PRIVATE -g -O3 -Wall -Wextra -pedantic -Werror)
+    TARGET_COMPILE_OPTIONS(code PRIVATE -ggdb -Wall -Wextra -pedantic -Werror)
 ELSEIF()
     MESSAGE(FATAL_ERROR "Neither GCC nor MSVC detected!")
 ENDIF()
