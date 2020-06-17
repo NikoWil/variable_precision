@@ -84,7 +84,9 @@ int main(int argc, char *argv[]) {
     std::mt19937 rng{std::random_device{}()};
 
     const auto matrix = CSR::transpose(CSR::row_stochastic(n, density, rng));
+    std::cout << "Setup done" << std::endl;
     const auto matrix_slice = distribute_matrix(matrix, comm, 0);
+    std::cout << "Matrix distributed" << std::endl;
     std::vector<double> initial(n, 1.);
     std::vector<double> result(n, 0.);
     const double c = 0.85;
@@ -92,6 +94,7 @@ int main(int argc, char *argv[]) {
     std::vector<int> rowcnt, start_row;
     get_rowcnt_start_row(comm, n, rowcnt, start_row);
 
+    const std::uint32_t warmup{30};
     const std::uint32_t num_tests{100};
 
     double sum{0};
@@ -101,6 +104,12 @@ int main(int argc, char *argv[]) {
     std::vector<pagerank::pr_meta> fix_metas;
     fix_metas.reserve(num_tests);
 
+    for (std::uint32_t i{0}; i < warmup; ++i) {
+	pagerank::fixed::pagerank(matrix_slice, initial, result, c, comm, rowcnt);
+	sum += result[0];
+	initial[0] = i + 1;
+    }
+    std::cout << "fixed warmup" << std::endl;
     for (std::uint32_t i{0}; i < num_tests; ++i) {
         auto meta = pagerank::fixed::pagerank(matrix_slice, initial, result, c, comm, rowcnt);
         fix_metas.push_back(std::move(meta));
@@ -108,7 +117,15 @@ int main(int argc, char *argv[]) {
         sum += result[0];
         initial[0] = i + 1.;
     }
+    std::cout << "fixed done" << std::endl;
+
     initial[0] = 1.;
+    for (std::uint32_t i{0}; i < warmup; ++i) {
+	pagerank::variable::pagerank_2_4_6_8(matrix_slice, initial, result, c, comm, rowcnt);
+	sum += result[0];
+	initial[0] = i + 1;
+    }
+
     for (std::uint32_t i{0}; i < num_tests; ++i) {
         auto meta_var = pagerank::variable::pagerank_2_4_6_8(matrix_slice, initial, result, c, comm, rowcnt);
         var_metas.push_back(std::move(meta_var));
