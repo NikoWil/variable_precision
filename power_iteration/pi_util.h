@@ -5,6 +5,7 @@
 #ifndef CODE_PI_UTIL_H
 #define CODE_PI_UTIL_H
 
+#include <array>
 #include <vector>
 #include <cstdint>
 #include "../segmentation/seg_uint.h"
@@ -26,8 +27,7 @@ namespace {
         double sum{0.};
 #pragma omp parallel for reduction(+ : sum) default(none) shared(v)
         for (size_t i = 0; i < v.size(); ++i) {
-            double val;
-            seg_uint::read_2(&v.at(i), &val);
+            const double val = seg_uint::read_2(&v.at(i));
             sum += std::pow(std::abs(val), N);
         }
 
@@ -39,8 +39,7 @@ namespace {
         double sum{0.};
 #pragma omp parallel for reduction(+ : sum) default(none) shared(v)
         for (size_t i = 0; i < v.size(); ++i) {
-            double val;
-            seg_uint::read_4(&v.at(i), &val);
+            const double val = seg_uint::read_4(&v.at(i));
             sum += std::pow(std::abs(val), N);
         }
 
@@ -48,14 +47,11 @@ namespace {
     }
 
     template <int N>
-    inline double norm_6(const std::vector<std::uint16_t> &v) {
-        assert(v.size() % 3 == 0 && "norm_6 vector size has to be multiple of 3");
-
+    inline double norm_6(const std::vector<std::array<std::uint16_t, 3>> &v) {
         double sum{0.};
 #pragma omp parallel for reduction(+ : sum) default(none) shared(v)
         for (size_t i = 0; i < v.size(); i += 3) {
-            double val;
-            seg_uint::read_6(&v.at(i), &val);
+            const double val = seg_uint::read_6(v.at(i));
             sum += std::pow(std::abs(val), N);
         }
         return std::pow(sum, 1./ static_cast<double>(N));
@@ -86,10 +82,9 @@ inline bool normalize_2(std::vector<std::uint16_t> &v) {
 
 #pragma omp parallel for default(none) shared(v)
     for (size_t i = 0; i < v.size(); ++i) {
-        double num;
-        seg_uint::read_2(&v.at(i), &num);
+        double num = seg_uint::read_2(&v.at(i));
         num /= norm_fac;
-        seg_uint::write_2(&v.at(i), &num);
+        v.at(i) = seg_uint::write_2(&num);
     }
     return true;
 }
@@ -103,16 +98,15 @@ inline bool normalize_4(std::vector<std::uint32_t> &v) {
 
 #pragma omp parallel for default(none) shared(v)
     for (size_t i = 0; i < v.size(); ++i) {
-        double num;
-        seg_uint::read_4(&v.at(i), &num);
+        double num = seg_uint::read_4(&v.at(i));
         num /= norm_fac;
-        seg_uint::write_4(&v.at(i), &num);
+        v.at(i) = seg_uint::write_4(&num);
     }
     return true;
 }
 
 template <int N>
-inline bool normalize_6(std::vector<std::uint16_t> &v) {
+inline bool normalize_6(std::vector<std::array<std::uint16_t, 3>> &v) {
     const auto norm_fac = norm_6<N>(v);
     if (norm_fac == 0) {
         return false;
@@ -120,10 +114,9 @@ inline bool normalize_6(std::vector<std::uint16_t> &v) {
 
 #pragma omp parallel for default(none) shared(v)
     for (size_t i = 0; i < v.size(); i += 3) {
-        double num;
-        seg_uint::read_6(&v.at(i), &num);
+        double num = seg_uint::read_6(v.at(i));
         num /= norm_fac;
-        seg_uint::write_6(&v.at(i), &num);
+        v.at(i) = seg_uint::write_6(&num);
     }
 
     return true;

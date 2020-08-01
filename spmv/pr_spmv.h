@@ -5,6 +5,7 @@
 #ifndef CODE_PR_SPMV_H
 #define CODE_PR_SPMV_H
 
+#include <array>
 #include <vector>
 #include "../matrix_formats/csr.hpp"
 
@@ -18,7 +19,7 @@ namespace pagerank {
 
         void spmv_4(const CSR &matrix, const std::vector<std::uint32_t> &x, std::vector<std::uint32_t> &y, double c);
 
-        void spmv_6(const CSR &matrix, const std::vector<std::uint16_t> &x, std::vector<std::uint16_t> &y, double c);
+        void spmv_6(const CSR &matrix, const std::vector<std::array<std::uint16_t, 3>> &x, std::vector<std::array<std::uint16_t, 3>> &y, double c);
     }
 }
 

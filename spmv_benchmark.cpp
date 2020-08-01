@@ -26,7 +26,7 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
     for (size_t i{0}; i < size; ++i) {
         const double val = value_distrib(rng);
         x[i] = val;
-        seg_uint::write_4(&x_halves[i], &val);
+        x_halves[i] = seg_uint::write_4(&val);
     }
 
     std::vector<double> y(size);
@@ -67,7 +67,7 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
             u_sum += y_halves[0];
             const double val = value_distrib(rng);
             const unsigned index = index_distrib(rng);
-            seg_uint::write_4(&x_halves[index], &val);
+            x_halves[index] = seg_uint::write_4(&val);
         }
 
         for (unsigned i{0}; i < iterations; ++i) {
@@ -79,7 +79,7 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
             u_sum += y_halves[0];
             const double val = value_distrib(rng);
             const unsigned index = index_distrib(rng);
-            seg_uint::write_4(&x_halves[index], &val);
+            x_halves[index] = seg_uint::write_4(&val);
         }
     }
 
@@ -90,23 +90,23 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
         std::vector<double> x_double(x.size());
         for (unsigned i{0}; i < warmup; ++i) {
             for (size_t k{0}; k < x.size(); ++k) {
-                seg_uint::read_4(&x_halves[k], &x_double[k]);
+                x_double[k] = seg_uint::read_4(&x_halves[k]);
             }
             fixed::spmv(matrix, x_double, y);
             for (size_t k{0}; k < y.size(); ++k) {
-                seg_uint::write_4(&y_halves.at(k), &y.at(k));
+                y_halves.at(k) = seg_uint::write_4(&y.at(k));
             }
 
             u_sum += y_halves[0];
             const double val = value_distrib(rng);
             const unsigned index = index_distrib(rng);
-            seg_uint::write_4(&x_halves[index], &val);
+            x_halves.at(index) = seg_uint::write_4(&val);
         }
 
         for (unsigned i{0}; i < iterations; ++i) {
             const auto conv_to_start = high_resolution_clock::now();
             for (size_t k{0}; k < x.size(); ++k) {
-                seg_uint::read_4(&x_halves[k], &x_double[k]);
+                x_double.at(k) = seg_uint::read_4(&x_halves[k]);
             }
             const auto conv_to_end = high_resolution_clock::now();
 
@@ -116,7 +116,7 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
 
             const auto conv_from_start = high_resolution_clock::now();
             for (size_t k{0}; k < y.size(); ++k) {
-                seg_uint::write_4(&y_halves.at(k), &y.at(k));
+                y_halves.at(k) = seg_uint::write_4(&y.at(k));
             }
             const auto conv_from_end = high_resolution_clock::now();
 
@@ -127,7 +127,7 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
             u_sum += y_halves[0];
             const double val = value_distrib(rng);
             const unsigned index = index_distrib(rng);
-            seg_uint::write_4(&x_halves[index], &val);
+            x_halves.at(index) = seg_uint::write_4(&val);
         }
     }
 
@@ -138,21 +138,21 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
         std::vector<double> x_double(x.size());
         for (unsigned i{0}; i < warmup; ++i) {
             for (size_t k{0}; k < x.size(); ++k) {
-                seg_uint::read_4(&x_halves.at(k), &x_double.at(k));
+                x_double.at(k) = seg_uint::read_4(&x_halves.at(k));
             }
             seg_uint::out_convert::spmv_4(matrix, x_double, y_halves);
 
             u_sum += y_halves[0];
             const double val = value_distrib(rng);
             const unsigned index = index_distrib(rng);
-            seg_uint::write_4(&x_halves[index], &val);
+            x_halves.at(index) = seg_uint::write_4(&val);
         }
 
 
         for (unsigned i{0}; i < iterations; ++i) {
             const auto start_conv = high_resolution_clock::now();
             for (size_t k{0}; k < x.size(); ++k) {
-                seg_uint::read_4(&x_halves.at(k), &x_double.at(k));
+                x_double.at(k) = seg_uint::read_4(&x_halves.at(k));
             }
             const auto end_conv = high_resolution_clock::now();
 
@@ -166,7 +166,7 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
             u_sum += y_halves[0];
             const double val = value_distrib(rng);
             const unsigned index = index_distrib(rng);
-            seg_uint::write_4(&x_halves[index], &val);
+            x_halves.at(index) = seg_uint::write_4(&val);
         }
     }
 
@@ -176,7 +176,7 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
 
     std::vector<uint64_t> timings_pre_convert_total(iterations);
     std::transform(timings_pre_convert_conversion.begin(), timings_pre_convert_conversion.end(),
-                   timings_pre_convert_spmv.begin(), timings_pre_convert_total.begin(), std::plus<uint64_t>());
+                   timings_pre_convert_spmv.begin(), timings_pre_convert_total.begin(), std::plus<uint64_t >());
 
     std::vector<uint64_t> timings_out_convert_total(iterations);
     std::transform(timings_out_convert_conversion.begin(), timings_out_convert_conversion.end(),

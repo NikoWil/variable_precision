@@ -38,18 +38,26 @@ public:
 
     CSR() : m_values{}, m_colidx{}, m_rowptr{0}, m_num_cols{0} {}
 
-    static CSR transpose(const CSR& matrix);
+    void concat_vertical(const CSR &other);
 
-    static CSR empty();
+    void concat_horizontal(const CSR &other);
+
+    static CSR transpose(const CSR &matrix);
+
+    static CSR empty(std::size_t width, std::size_t height);
 
     static CSR unit(unsigned n);
 
     static CSR row_stochastic(unsigned n, double density, std::mt19937 rng);
 
+    static CSR
+    distributed_column_stochastic(std::size_t n, double density, std::mt19937 rng, std::size_t block_size, MPI_Comm comm,
+                                  int root = 0);
+
     static CSR diagonally_dominant(unsigned n, double density, std::mt19937 rng);
 
     static CSR diagonally_dominant_slice(unsigned n, double density,
-                                         std::mt19937& rng, unsigned first_row, unsigned last_row);
+                                         std::mt19937 &rng, unsigned first_row, unsigned last_row);
 
     static CSR fixed_eta(unsigned n, double density, double eta, std::mt19937 &rng);
 
@@ -79,15 +87,19 @@ public:
         return m_values.size();
     }
 
-    void print() const {
+    void print() const;/* {
         print_vector(m_values, "m_values");
         print_vector(m_colidx, "m_colidx");
         print_vector(m_rowptr, "m_rowptr");
         std::cout << "m_num_cols: " << m_num_cols << std::endl;
         std::cout << "m_num_rows: " << this->num_rows() << std::endl;
-    }
+    }// */
 
 private:
+    // this function takes a std::mt19937 by non-const reference to allow reproducible matrix generation
+    // between this version and other row_stochastic matrices by using one std::mt19937 through multiple calls
+    static CSR row_stochastic(unsigned width, unsigned height, double density, std::mt19937 &rng);
+
     std::vector<double> m_values;
     std::vector<int> m_colidx;
     std::vector<int> m_rowptr;

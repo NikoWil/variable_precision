@@ -5,6 +5,7 @@
 #ifndef CODE_SEG_UINT_H
 #define CODE_SEG_UINT_H
 
+#include <array>
 #include <cstdint>
 
 namespace {
@@ -30,47 +31,45 @@ namespace {
 }
 
 namespace seg_uint {
-    inline void read_2(const uint16_t *const u, double *d) {
+    inline double read_2(const std::uint16_t *const u) {
         Seg_16 s{};
         s.u64 = 0;
         s.u16[3] = *u;
-        *d = s.d;
+        return s.d;
     }
 
-    inline void read_4(const uint32_t *const u, double *d) {
+    inline double read_4(const std::uint32_t *const u) {
         Seg_32 s{};
         s.u64 = 0;
         s.u32[1] = *u;
-        *d = s.d;
+        return s.d;
     }
 
-    inline void read_6(const uint16_t *const u, double *d) {
+    inline double read_6(std::array<std::uint16_t, 3> u) {
         Seg_16 s{};
         s.u64 = 0;
-        s.u16[3] = u[2];
-        s.u16[2] = u[1];
         s.u16[1] = u[0];
-        *d = s.d;
+        s.u16[2] = u[1];
+        s.u16[3] = u[2];
+        return s.d;
     }
 
-    inline void write_2(uint16_t *u, const double *const d) {
+    inline std::uint16_t write_2(const double *const d) {
         Seg_16 s{};
         s.d = *d;
-        u[0] = s.u16[3];
+        return s.u16[3];
     }
 
-    inline void write_4(uint32_t *u, const double *const d) {
+    inline std::uint32_t write_4(const double *const d) {
         Seg_32 s{};
         s.d = *d;
-        u[0] = s.u32[1];
+        return s.u32[1];
     }
 
-    inline void write_6(uint16_t *u, const double *const d) {
+    inline std::array<std::uint16_t, 3> write_6(const double *const d) {
         Seg_16 s{};
         s.d = *d;
-        u[0] = s.u16[1];
-        u[1] = s.u16[2];
-        u[2] = s.u16[3];
+        return {s.u16[1], s.u16[2], s.u16[3]};
     }
 }
 

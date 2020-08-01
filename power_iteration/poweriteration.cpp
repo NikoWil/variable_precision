@@ -277,7 +277,7 @@ namespace distributed {
                 MPI_Allgatherv(partial_result_halves.data(), rowcnt.at(rank), MPI_UINT16_T, next_halves.data(),
                                rowcnt.data(), recvdispls.data(), MPI_UINT16_T, comm);
                 for (size_t k{0}; k < next_halves.size(); ++k) {
-                    ::seg_uint::read_2(&next_halves.at(k), &next.at(k));
+                    next.at(k) = ::seg_uint::read_2(&next_halves.at(k));
                 }
 
                 // Calculate Rayleigh-Quotient as rho_k = y_k^H * z_{k+1} = y_k^H * A * y_k
@@ -412,7 +412,7 @@ namespace distributed {
                                next_halves.data(), rowcnt.data(), recvdispls.data(), MPI_UINT32_T,
                                comm);
                 for (size_t k{0}; k < next_halves.size(); ++k) {
-                    ::seg_uint::read_4(&next_halves.at(k), &next.at(k));
+                    next.at(k) = ::seg_uint::read_4(&next_halves.at(k));
                 }
 
                 // Calculate Rayleigh-Quotient as rho_k = y_k^H * z_{k+1} = y_k^H * A * y_k
@@ -538,9 +538,9 @@ namespace distributed {
             }
 
             std::vector<double> next(initial.size());
-            std::vector<uint16_t> next_halves(3 * initial.size());
+            std::vector<std::array<std::uint16_t, 3>> next_halves(initial.size());
 
-            std::vector<uint16_t> partial_result_halves(3 * rowcnt.at(rank));
+            std::vector<std::array<std::uint16_t, 3>> partial_result_halves(rowcnt.at(rank));
             bool done = false;
             int i{0};
             while (!done && i < iteration_limit) {
@@ -551,7 +551,7 @@ namespace distributed {
                                next_halves.data(), recvcounts.data(), recvdispls.data(), MPI_UINT16_T,
                                comm);
                 for (size_t k{0}; k < next.size(); ++k) {
-                    ::seg_uint::read_6(&next_halves.at(3 * k), &next.at(k));
+                    next.at(k) = ::seg_uint::read_6(next_halves.at(k));
                 }
 
                 // Calculate Rayleigh-Quotient as rho_k = y_k^H * z_{k+1} = y_k^H * A * y_k

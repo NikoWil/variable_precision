@@ -24,11 +24,17 @@ namespace pagerank {
         std::vector<std::int64_t> overhead_timings;
     };
 
-    void print_meta(const pagerank::pr_meta &meta);
+    void print_meta(const pr_meta &meta);
 
-    void print_fixed(const pagerank::pr_meta &meta);
+    void print_fixed(const pr_meta &meta);
 
-    void print_2_4_6_8(const std::array<pagerank::pr_meta, 4> &meta);
+    void print_2_4_6_8(const std::array<pr_meta, 4> &meta);
+
+    void print_4_6_8(const std::array<pr_meta, 3> &meta);
+
+    void print_4_8(const std::array<pr_meta, 2> &meta);
+
+    void print_6_8(const std::array<pr_meta, 2> &meta);
 
     namespace local {
         std::pair<bool, int>
@@ -50,7 +56,7 @@ namespace pagerank {
                    double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
 
         pr_meta
-        pagerank_6(const CSR &matrix, const std::vector<std::uint16_t> &initial, std::vector<std::uint16_t> &result,
+        pagerank_6(const CSR &matrix, const std::vector<std::array<std::uint16_t, 3>> &initial, std::vector<std::array<std::uint16_t, 3>> &result,
                    double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
     }
 
@@ -62,6 +68,10 @@ namespace pagerank {
         std::array<pr_meta, 3>
         pagerank_4_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,
                        MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
+
+        std::array<pr_meta, 2>
+        pagerank_4_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,
+                     MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit = 1000);
 
         std::array<pr_meta, 2>
         pagerank_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,

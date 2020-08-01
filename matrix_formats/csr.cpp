@@ -4,7 +4,81 @@
 #include <iostream>
 
 #include "csr.hpp"
+#include "../communication.h"
 
+void CSR::concat_vertical(const CSR &other) {
+    assert(this->num_cols() == other.num_cols() &&
+           "CSR::concat_vertical both matrices need to have same number of columns");
+    /**
+     * 1. generate copy of other.rowptr
+     * 2. add this.rowptr.end to each element of other.rowptr
+     * 3. concatenate this.values and other.values
+     *                this.colidx and other.colidx
+     *                this.rowptr and other.rowptr[1..]
+     */
+    std::vector<int> rowptr_extension;
+    rowptr_extension.reserve(other.m_rowptr.size() - 1);
+    // Skip the first element as it's a duplicate between both elements
+    rowptr_extension.insert(rowptr_extension.begin(), other.m_rowptr.begin() + 1, other.m_rowptr.end());
+    for (auto &e : rowptr_extension) {
+        e += this->m_rowptr.back();
+    }
+    this->m_rowptr.reserve(this->m_rowptr.size() + rowptr_extension.size());
+    this->m_rowptr.insert(this->m_rowptr.end(), rowptr_extension.begin(), rowptr_extension.end());
+
+    this->m_colidx.reserve(this->m_colidx.size() + other.m_colidx.size());
+    this->m_colidx.insert(m_colidx.end(), other.m_colidx.begin(), other.m_colidx.end());
+    this->m_values.reserve(this->m_values.size() + other.m_values.size());
+    this->m_values.insert(this->m_values.begin(), other.m_values.begin(), other.m_values.end());
+}
+
+void CSR::concat_horizontal(const CSR &other) {
+    assert(this->num_rows() == other.num_rows() &&
+           "CSR::concat_horizontal both matrices need to have same number of rows");
+
+    std::vector<int> new_rowptr;
+    new_rowptr.reserve(this->num_rows());
+    for (std::size_t i{0}; i < this->m_rowptr.size(); ++i) {
+        new_rowptr.push_back(this->m_rowptr.at(i) + other.m_rowptr.at(i));
+    }
+
+    std::vector<int> colidx_extension;
+    colidx_extension.reserve(other.m_colidx.size());
+    for (const auto e : other.m_colidx) {
+        colidx_extension.push_back(e + this->m_num_cols);
+    }
+
+    std::vector<double> new_values;
+    new_values.reserve(this->m_values.size() + other.m_values.size());
+    std::vector<int> new_colidx;
+    new_colidx.reserve(this->m_colidx.size() + other.m_colidx.size());
+    for (std::size_t row{0}; row < this->num_rows(); ++row) {
+        new_values.insert(new_values.end(),
+                          this->m_values.begin() + this->m_rowptr.at(row),
+                          this->m_values.begin() + this->m_rowptr.at(row + 1));
+        new_values.insert(new_values.end(),
+                          other.m_values.begin() + other.rowptr().at(row),
+                          other.m_values.begin() + other.m_rowptr.at(row + 1));
+        new_colidx.insert(new_colidx.end(),
+                          this->m_colidx.begin() + this->m_rowptr.at(row),
+                          this->m_colidx.begin() + this->m_rowptr.at(row + 1));
+        new_colidx.insert(new_colidx.end(),
+                          colidx_extension.begin() + other.m_rowptr.at(row),
+                          colidx_extension.begin() + other.m_rowptr.at(row + 1));
+    }
+
+    this->m_values = new_values;
+    this->m_colidx = new_colidx;
+    this->m_rowptr = new_rowptr;
+    this->m_num_cols += other.m_num_cols;
+}
+
+/**
+ * 1. count #values per column, use as new rowptr
+ * 2. iterate through all values, find their old colidx and use the new rowptr to offset them into the right new place
+ * @param matrix
+ * @return
+ */
 CSR CSR::transpose(const CSR &matrix) {
     assert(matrix.num_rows() == matrix.num_rows() && "CSR::transpose expectes the input matrix to be square");
     const int n = static_cast<int>(matrix.num_cols());
@@ -39,11 +113,14 @@ CSR CSR::transpose(const CSR &matrix) {
         offsets[matrix.m_colidx[i]] += 1;
     }
 
-    return CSR{values, colidx, rowptr, matrix.num_cols()};
+    return CSR{values, colidx, rowptr, matrix.num_rows()};
 }
 
-CSR CSR::empty() {
-    return CSR::unit(0);
+CSR CSR::empty(std::size_t width, std::size_t height) {
+    std::vector<double> values;
+    std::vector<int> colidx;
+    std::vector<int> rowptr(height + 1, 0);
+    return CSR{values, colidx, rowptr, width};
 }
 
 CSR CSR::unit(unsigned n) {
@@ -59,24 +136,28 @@ CSR CSR::unit(unsigned n) {
     return CSR{values, colidx, rowptr, n};
 }
 
-CSR CSR::row_stochastic(unsigned int n, double density, std::mt19937 rng) {
+CSR CSR::row_stochastic(unsigned width, unsigned height, double density, std::mt19937 &rng) {
     assert(0 <= density && density <= 1 && "CSR::row_stochastic density needs to be in interval [0, 1]");
-    unsigned vals_per_row = static_cast<unsigned>(density * n);
-    assert(vals_per_row > 0 && "CSR::row_stochastic needs density that guarantees at least 1 value per row");
+    auto vals_per_row = static_cast<unsigned>(density * width);
+    assert((vals_per_row >= 1) && "CSR::row_stochastic needs density that guarantees at least 1 value per row");
+    /*assert(index_distribution.a() == 0 && "CSR::row_stochastic index_distribution.a() must be 0");
+    assert(static_cast<unsigned>(index_distribution.b()) == width - 1 &&
+           "CSR::row_stochastic index_distribution.a() must be width - 1");*/
 
     std::vector<double> values;
-    values.reserve(n * vals_per_row);
+    values.reserve(height * vals_per_row);
     std::vector<int> colidx;
-    colidx.reserve(n * vals_per_row);
+    colidx.reserve(height * vals_per_row);
     std::vector<int> rowptr;
-    rowptr.reserve(n + 1);
+    rowptr.reserve(height + 1);
     rowptr.push_back(0);
 
-    double normed_value = 1. / static_cast<double>(vals_per_row); // each entry is of size 1 / vals_per_row, s.t. sum(row) = 1.
+    double normed_value =
+            1. / static_cast<double>(vals_per_row); // each entry is of size 1 / vals_per_row, s.t. sum(row) = 1.
 
-    std::uniform_int_distribution<> index_distribution(0, n - 1);
+    std::uniform_int_distribution<> index_distribution(0, width - 1);
     // generate & append one more row
-    for (unsigned i = 0; i < n; ++i) {
+    for (unsigned i = 0; i < height; ++i) {
         std::vector<double> new_values(vals_per_row, normed_value);
         std::set<int> indices;
         while (indices.size() < vals_per_row) {
@@ -90,7 +171,62 @@ CSR CSR::row_stochastic(unsigned int n, double density, std::mt19937 rng) {
         rowptr.push_back(colidx.size());
     }
 
-    return CSR{values, colidx, rowptr, n};
+    return CSR{values, colidx, rowptr, width};
+}
+
+CSR CSR::row_stochastic(unsigned int n, double density, std::mt19937 rng) {
+    assert(0 <= density && density <= 1 && "CSR::row_stochastic density needs to be in interval [0, 1]");
+    assert((density * n >= 1) && "CSR::row_stochastic needs density that guarantees at least 1 value per row");
+
+    return row_stochastic(n, n, density, rng);
+}
+
+CSR
+CSR::distributed_column_stochastic(std::size_t n, double density, std::mt19937 rng, std::size_t block_size, MPI_Comm comm,
+                                   int root) {
+    const auto width = n;
+    const auto height = n;
+    auto remaining_height = n;
+
+    int comm_rank;
+    MPI_Comm_rank(comm, &comm_rank);
+
+    CSR initial = CSR::empty(0, height);
+    CSR matrix_builder = distribute_matrix(initial, comm, root);
+
+    CSR big_builder;
+    if (comm_rank == root) {
+        big_builder = CSR::empty(0, height);
+    }
+
+    while (remaining_height > 0) {
+        const auto next_height = std::min(block_size, remaining_height);
+        CSR matrix_block;
+        if (comm_rank == root) {
+            matrix_block = row_stochastic(width, next_height, density, rng);
+            matrix_block = transpose(matrix_block);
+
+            big_builder.concat_horizontal(matrix_block);
+        }
+        CSR matrix_block_slice = distribute_matrix(matrix_block, comm, root);
+
+        /*if (comm_rank == root) {
+            std::cout << "matrix_block\n";
+            matrix_block.print();
+        }
+        MPI_Barrier(comm);//*/
+
+        matrix_builder.concat_horizontal(matrix_block_slice);
+
+        remaining_height -= next_height;
+    }
+
+    if (comm_rank == root) {
+        std::cout << "big builder:\n";
+        big_builder.print();
+    }
+
+    return matrix_builder;
 }
 
 CSR CSR::diagonally_dominant(unsigned n, double density, std::mt19937 rng) {
@@ -147,7 +283,7 @@ CSR CSR::diagonally_dominant(unsigned n, double density, std::mt19937 rng) {
     return CSR{values, colidx, rowptr, n};
 }
 
-CSR CSR::diagonally_dominant_slice(unsigned n, double density, std::mt19937& rng,
+CSR CSR::diagonally_dominant_slice(unsigned n, double density, std::mt19937 &rng,
                                    unsigned first_row, unsigned last_row) {
     assert(density * n >= 1 && "CSR::diagonally_dominant_slice Matrix needs at least 1 element per row");
     assert(first_row <= last_row && "CSR::diagonally_dominant_slice First row <= last_row required");
@@ -309,4 +445,38 @@ CSR CSR::random(uint64_t width, uint64_t height, double density, std::mt19937 rn
     }
 
     return CSR{values, colidx, rowptr, width};
+}
+
+void CSR::print() const {
+    for (unsigned row{0}; row < this->num_rows(); ++row) {
+        // print an empty row, then resume with the next row
+        if (this->m_rowptr[row] == this->m_rowptr[row + 1]) {
+            for (unsigned col{0}; col < this->num_cols(); ++col) {
+                std::cout << "_ ";
+            }
+            std::cout << "\n";
+            continue;
+        }
+
+        const auto row_start = this->m_rowptr[row];
+
+        auto colidx_offset{0};
+        unsigned curr_colidx = this->m_colidx.at(row_start);
+
+        for (unsigned col{0}; col < this->num_cols(); ++col) {
+            if (col == curr_colidx) {
+                const int idx = row_start + colidx_offset;
+                std::cout << this->m_values.at(idx) << " ";
+
+                // we got everything from this row already, no need to update, also updating is dangerous!
+                if (idx + 1 < this->m_rowptr.at(row + 1)) {
+                    curr_colidx = this->m_colidx.at(idx + 1);
+                    colidx_offset += 1;
+                }
+            } else {
+                std::cout << "_ ";
+            }
+        }
+        std::cout << "\n";
+    }
 }

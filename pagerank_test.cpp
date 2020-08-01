@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <iomanip>
+#include <chrono>
 
 #include "pagerank_test.h"
 #include "matrix_formats/csr.hpp"
@@ -13,7 +14,7 @@
 #include "communication.h"
 
 void test_convergence() {
-    // TODO: make sure memory requitements remain <= 60 GB
+    // TODO: make sure memory requirements remain <= 60 GB
     //  => 64 GB = 2 ** 36 bytes => < 16 bytes per element
     //  => we can fit 2 ** 32 elements
     //  => size^2 * density <= 2 ** 16 as requirement
@@ -116,15 +117,14 @@ void test_precision_levels(unsigned n, double density, const std::vector<int> &r
     std::vector<std::uint16_t> initial_2;
     initial_2.reserve(n);
     for (size_t i{0}; i < initial.size(); ++i) {
-        std::uint16_t val;
-        seg_uint::write_2(&val, &initial[i]);
+        std::uint16_t val = seg_uint::write_2(&initial[i]);
         initial_2.push_back(val);
     }
     std::vector<uint16_t> result_2_seg(n);
     const auto meta_2 = pagerank::seg::pagerank_2(transposed_slice, initial_2, result_2_seg, c, comm, rowcnt);
     std::vector<double> result_2_dbl(n);
     for (size_t i{0}; i < result_2_seg.size(); ++i) {
-        seg_uint::read_2(&result_2_seg[i], &result_2_dbl[i]);
+        result_2_dbl.at(i) = seg_uint::read_2(&result_2_seg[i]);
     }
 
     if (rank == 0) {
@@ -139,15 +139,14 @@ void test_precision_levels(unsigned n, double density, const std::vector<int> &r
     std::vector<std::uint32_t> initial_4;
     initial_4.reserve(n);
     for (size_t i{0}; i < initial.size(); ++i) {
-        std::uint32_t val;
-        seg_uint::write_4(&val, &initial[i]);
+        std::uint32_t val = seg_uint::write_4(&initial[i]);
         initial_4.push_back(val);
     }
     std::vector<std::uint32_t> result_4_seg(n);
     const auto meta_4 = pagerank::seg::pagerank_4(transposed_slice, initial_4, result_4_seg, c, comm, rowcnt);
     std::vector<double> result_4_dbl(n);
     for (size_t i{0}; i < result_4_seg.size(); ++i) {
-        seg_uint::read_4(&result_4_seg[i], &result_4_dbl[i]);
+        result_4_dbl.at(i) = seg_uint::read_4(&result_4_seg[i]);
     }
 
     if (rank == 0) {
@@ -159,15 +158,15 @@ void test_precision_levels(unsigned n, double density, const std::vector<int> &r
     /** #############################################################################################
      *  #############################################################################################
      */
-    std::vector<std::uint16_t> initial_6(3 * n);
+    std::vector<std::array<std::uint16_t, 3>> initial_6(n);
     for (size_t i{0}; i < initial.size(); ++i) {
-        seg_uint::write_6(&initial_6[3 * i], &initial[i]);
+        initial_6.at(i) = seg_uint::write_6(&initial[i]);
     }
-    std::vector<std::uint16_t> result_6_seg(3 * n);
+    std::vector<std::array<std::uint16_t, 3>> result_6_seg(n);
     const auto meta_6 = pagerank::seg::pagerank_6(transposed_slice, initial_6, result_6_seg, c, comm, rowcnt);
     std::vector<double> result_6_dbl(n);
     for (size_t i{0}; i < result_6_dbl.size(); ++i) {
-        seg_uint::read_6(&result_6_seg[3 * i], &result_6_dbl[i]);
+        result_6_dbl.at(i) = seg_uint::read_6(result_6_seg[i]);
     }
 
     if (rank == 0) {
@@ -257,7 +256,8 @@ void pr_performance_test(MPI_Comm comm) {
 
                 for (std::uint32_t sample{0}; sample < num_samples; ++sample) {
                     // perform pagerank, variable precision
-                    const auto meta = pagerank::variable::pagerank_2_4_6_8(matrix_slice, initial, result, c, comm, rowcnt);
+                    const auto meta = pagerank::variable::pagerank_2_4_6_8(matrix_slice, initial, result, c, comm,
+                                                                           rowcnt);
                     meta_2_4_6_8.push_back(std::move(meta));
 
                     sum += result.at(0);
@@ -268,7 +268,7 @@ void pr_performance_test(MPI_Comm comm) {
                 if (rank == root) {
                     std::cout << "seed " << seed << "\n";
 
-                    for (const auto& m : meta_fixed) {
+                    for (const auto &m : meta_fixed) {
                         pagerank::print_fixed(m);
                     }
                     for (const auto &m : meta_2_4_6_8) {
@@ -283,4 +283,73 @@ void pr_performance_test(MPI_Comm comm) {
     if (rank == 0) {
         std::cout << "sum " << sum << "\n";
     }
+}
+
+CSR get_matrix_slice(int size, double density, MPI_Comm comm) {
+    std::mt19937 rng{std::random_device{}()};
+    auto matrix = CSR::row_stochastic(size, density, rng);
+    matrix = CSR::transpose(matrix);
+    const auto matrix_slice = distribute_matrix(matrix, comm, 0);
+    return matrix_slice;
+}
+
+void single_speedup_test(int size, double density, double c, unsigned warmup, unsigned test_iterations, MPI_Comm comm,
+                         const std::vector<int> &rowcnt) {
+    int comm_rank;
+    MPI_Comm_rank(comm, &comm_rank);
+
+    const auto matrix_slice = get_matrix_slice(size, density, comm);
+
+    std::vector<double> initial;
+    initial.reserve(size);
+    for (int i{0}; i < size; ++i) {
+        initial.push_back(1.);
+    }
+
+    std::vector<double> result;
+    for (unsigned i{0}; i < warmup; ++i) {
+        pagerank::variable::pagerank_4_8(matrix_slice, initial, result, c, comm, rowcnt);
+    }
+
+    for (unsigned i{0}; i < test_iterations; ++i) {
+        using namespace std::chrono;
+        const auto start = high_resolution_clock::now();
+        const auto meta = pagerank::variable::pagerank_4_8(matrix_slice, initial, result, c, comm, rowcnt);
+        const auto end = high_resolution_clock::now();
+        if (comm_rank == 0) {
+            pagerank::print_4_8(meta);
+            std::cout << "total_time " << duration_cast<nanoseconds>(end - start).count() << "\n\n";
+        }
+    }
+
+    for (unsigned i{0}; i < warmup; ++i) {
+        pagerank::fixed::pagerank(matrix_slice, initial, result, c, comm, rowcnt);
+    }
+
+    for (unsigned i{0}; i < test_iterations; ++i) {
+        using namespace std::chrono;
+        const auto start = high_resolution_clock::now();
+        const auto meta = pagerank::fixed::pagerank(matrix_slice, initial, result, c, comm, rowcnt);
+        const auto end = high_resolution_clock::now();
+        if (comm_rank == 0) {
+            pagerank::print_fixed(meta);
+            std::cout << "total_time " << duration_cast<nanoseconds>(end - start).count() << "\n\n";
+        }
+    }
+
+    /*
+    for (unsigned i{0}; i < warmup; ++i) {
+        pagerank::variable::pagerank_4_6_8(matrix_slice, initial, result, c, comm, rowcnt);
+    }
+
+    for (unsigned i{0}; i < test_iterations; ++i) {
+        using namespace std::chrono;
+        const auto start = high_resolution_clock::now();
+        const auto meta = pagerank::variable::pagerank_4_6_8(matrix_slice, initial, result, c, comm, rowcnt);
+        const auto end = high_resolution_clock::now();
+        if (comm_rank == 0) {
+            pagerank::print_4_6_8(meta);
+            std::cout << "total_time " << duration_cast<nanoseconds>(end - start).count() << "\n\n";
+        }
+    }// */
 }

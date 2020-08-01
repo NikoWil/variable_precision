@@ -5,6 +5,7 @@
 #ifndef CODE_SPMV_FIXED_H
 #define CODE_SPMV_FIXED_H
 
+#include <array>
 #include <vector>
 
 #include "../matrix_formats/csr.hpp"
@@ -35,8 +36,8 @@ void spmv_6(const CSR& matrix, const std::vector<uint16_t > &x,
         void spmv_4(const CSR &matrix, const std::vector<uint32_t> &x,
                     std::vector<uint32_t> &y);
 
-        void spmv_6(const CSR &matrix, const std::vector<uint16_t> &x,
-                    std::vector<uint16_t> &y);
+        void spmv_6(const CSR &matrix, const std::vector<std::array<std::uint16_t, 3>> &x,
+                    std::vector<std::array<std::uint16_t, 3>> &y);
     }
 
     namespace out_convert {
@@ -47,7 +48,7 @@ void spmv_6(const CSR& matrix, const std::vector<uint16_t > &x,
                     std::vector<uint32_t> &y);
 
         void spmv_6(const CSR &matrix, const std::vector<double> &x,
-                    std::vector<uint16_t> &y);
+                    std::vector<std::array<std::uint16_t, 3>> &y);
     }
 }
 

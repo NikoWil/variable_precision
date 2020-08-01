@@ -169,7 +169,7 @@ pagerank::pr_meta pagerank::seg::pagerank_2(const CSR &matrix, const std::vector
     if (!initial_non_zero) {
         return {false, 0, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
     }
-    result.clear();
+    //result.clear();
     result.resize(initial.size());
     std::vector<uint16_t> partial_result(rowcnt.at(rank));
 
@@ -199,9 +199,8 @@ pagerank::pr_meta pagerank::seg::pagerank_2(const CSR &matrix, const std::vector
         // Check for finish condition
         double norm_diff = 0;
         for (size_t k{0}; k < result.size(); ++k) {
-            double val_1, val_2;
-            seg_uint::read_2(&result[k], &val_1);
-            seg_uint::read_2(&curr[k], &val_2);
+            double val_1 = seg_uint::read_2(&result[k]);
+            double val_2 = seg_uint::read_2(&curr[k]);
             norm_diff += std::abs(val_1 - val_2);
         }
         converged = norm_diff < epsilon; // && residual < epsilon;
@@ -285,9 +284,8 @@ pagerank::pr_meta pagerank::seg::pagerank_4(const CSR &matrix, const std::vector
         // Check for finish condition
         double norm_diff = 0;
         for (size_t k{0}; k < result.size(); ++k) {
-            double val_1, val_2;
-            seg_uint::read_4(&result[k], &val_1);
-            seg_uint::read_4(&curr[k], &val_2);
+            double val_1 = seg_uint::read_4(&result[k]);
+            double val_2 = seg_uint::read_4(&curr[k]);
             norm_diff += std::abs(val_1 - val_2);
         }
 
@@ -310,8 +308,8 @@ pagerank::pr_meta pagerank::seg::pagerank_4(const CSR &matrix, const std::vector
     return {converged, i, total_time, prep_time, spmv_timings, agv_timings, overhead_timings};
 }
 
-pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector<std::uint16_t> &initial,
-                                            std::vector<std::uint16_t> &result, double c, MPI_Comm comm,
+pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector<std::array<std::uint16_t, 3>> &initial,
+                                            std::vector<std::array<std::uint16_t, 3>> &result, double c, MPI_Comm comm,
                                             const std::vector<int> &rowcnt, int iteration_limit) {
     using namespace std::chrono;
     const auto total_start = high_resolution_clock::now();
@@ -322,7 +320,7 @@ pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector
     MPI_Comm_size(comm, &comm_size);
 
     assert(static_cast<unsigned>(rowcnt.at(rank)) == matrix.num_rows());
-    assert(initial.size() == 3 * matrix.num_cols());
+    assert(initial.size() == matrix.num_cols());
 
     std::vector<int> recvdispls;
     recvdispls.push_back(0);
@@ -339,7 +337,7 @@ pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector
     const double epsilon = pow(2, -36) * 10;
 
     // Create vectors to store calculations
-    std::vector<std::uint16_t> curr = initial;
+    std::vector<std::array<std::uint16_t, 3>> curr = initial;
     bool initial_non_zero = normalize_6<1>(curr);
     if (!initial_non_zero) {
         return {false, 0, 0, 0, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}, std::vector<std::int64_t>{}};
@@ -347,7 +345,7 @@ pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector
     result.clear();
     result.resize(initial.size());
 
-    std::vector<std::uint16_t> partial_result(rowcnt.at(rank) * 3);
+    std::vector<std::array<std::uint16_t, 3>> partial_result(rowcnt.at(rank));
     bool converged = false;
     int i{0};
 
@@ -374,9 +372,8 @@ pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector
         // Check for finish condition
         double norm_diff = 0;
         for (size_t k{0}; k < result.size(); k += 3) {
-            double val_1, val_2;
-            seg_uint::read_6(&result[k], &val_1);
-            seg_uint::read_6(&curr[k], &val_2);
+            const double val_1 = seg_uint::read_6(result[k]);
+            const double val_2 = seg_uint::read_6(curr[k]);
             norm_diff += std::abs(val_1 - val_2);
         }
 
@@ -402,12 +399,12 @@ pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector
 std::array<pagerank::pr_meta, 4>
 pagerank::variable::pagerank_2_4_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result,
                                      double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit) {
-    const std::size_t n{result.size()};
+    const std::size_t n{initial.size()};
     int left_iterations = iteration_limit;
 
     std::vector<std::uint16_t> initial_2(n);
     for (std::size_t i{0}; i < n; ++i) {
-        seg_uint::write_2(&initial_2.at(i), &initial.at(i));
+        initial_2.at(i) = seg_uint::write_2(&initial.at(i));
     }
     std::vector<std::uint16_t> result_2(n);
     const auto meta_2 = seg::pagerank_2(matrix, initial_2, result_2, c, comm, rowcnt, left_iterations);
@@ -416,30 +413,27 @@ pagerank::variable::pagerank_2_4_6_8(const CSR &matrix, const std::vector<double
 
     std::vector<std::uint32_t> initial_4(n);
     for (std::size_t i{0}; i < n; ++i) {
-        double val;
-        seg_uint::read_2(&result_2.at(i), &val);
-        seg_uint::write_4(&initial_4.at(i), &val);
+        const double val = seg_uint::read_2(&result_2.at(i));
+        initial_4.at(i) = seg_uint::write_4(&val);
     }
     std::vector<std::uint32_t> result_4(n);
     const auto meta_4 = seg::pagerank_4(matrix, initial_4, result_4, c, comm, rowcnt, left_iterations);
 
     left_iterations -= meta_4.used_iterations;
 
-    std::vector<std::uint16_t> initial_6(3 * n);
+    std::vector<std::array<std::uint16_t, 3>> initial_6(n);
     for (std::size_t i{0}; i < n; ++i) {
-        double val;
-        seg_uint::read_4(&result_4.at(i), &val);
-        seg_uint::write_6(&initial_6.at(3 * i), &val);
+        const double val = seg_uint::read_4(&result_4.at(i));
+        initial_6.at(i) = seg_uint::write_6(&val);
     }
-    std::vector<std::uint16_t> result_6(3 * n);
+    std::vector<std::array<std::uint16_t, 3>> result_6(n);
     const auto meta_6 = seg::pagerank_6(matrix, initial_6, result_6, c, comm, rowcnt, left_iterations);
 
     left_iterations -= meta_6.used_iterations;
 
     std::vector<double> initial_8(n);
     for (std::size_t i{0}; i < n; ++i) {
-        double val;
-        seg_uint::read_6(&result_6.at(3 * i), &val);
+        const double val = seg_uint::read_6(result_6.at(i));
         initial_8.at(i) = val;
     }
     const auto meta_8 = fixed::pagerank(matrix, initial_8, result, c, comm, rowcnt, left_iterations);
@@ -450,33 +444,31 @@ pagerank::variable::pagerank_2_4_6_8(const CSR &matrix, const std::vector<double
 std::array<pagerank::pr_meta, 3>
 pagerank::variable::pagerank_4_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result,
                                    double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit) {
-    const std::size_t n{result.size()};
+    const std::size_t n{initial.size()};
     int left_iterations = iteration_limit;
 
     std::vector<std::uint32_t> initial_4(n);
     for (std::size_t i{0}; i < n; ++i) {
-        seg_uint::write_4(&initial_4.at(i), &initial.at(i));
+        initial_4.at(i) = seg_uint::write_4(&initial.at(i));
     }
     std::vector<std::uint32_t> result_4(n);
     const auto meta_4 = seg::pagerank_4(matrix, initial_4, result_4, c, comm, rowcnt, left_iterations);
 
     left_iterations -= meta_4.used_iterations;
 
-    std::vector<std::uint16_t> initial_6(3 * n);
+    std::vector<std::array<std::uint16_t, 3>> initial_6(n);
     for (std::size_t i{0}; i < n; ++i) {
-        double val;
-        seg_uint::read_4(&result_4.at(i), &val);
-        seg_uint::write_6(&initial_6.at(3 * i), &val);
+        const double val = seg_uint::read_4(&result_4.at(i));
+        initial_6.at(i) = seg_uint::write_6(&val);
     }
-    std::vector<std::uint16_t> result_6(3 * n);
+    std::vector<std::array<std::uint16_t, 3>> result_6(n);
     const auto meta_6 = seg::pagerank_6(matrix, initial_6, result_6, c, comm, rowcnt, left_iterations);
 
     left_iterations -= meta_6.used_iterations;
 
     std::vector<double> initial_8(n);
     for (std::size_t i{0}; i < n; ++i) {
-        double val;
-        seg_uint::read_6(&result_6.at(3 * i), &val);
+        const double val = seg_uint::read_6(result_6.at(i));
         initial_8.at(i) = val;
     }
     const auto meta_8 = fixed::pagerank(matrix, initial_8, result, c, comm, rowcnt, left_iterations);
@@ -485,24 +477,48 @@ pagerank::variable::pagerank_4_6_8(const CSR &matrix, const std::vector<double> 
 }
 
 std::array<pagerank::pr_meta, 2>
-pagerank::variable::pagerank_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result,
-                                 double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit) {
-    const std::size_t n{result.size()};
+pagerank::variable::pagerank_4_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result, double c,
+             MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit) {
+    const std::size_t n{initial.size()};
     int left_iterations = iteration_limit;
 
-    std::vector<std::uint16_t> initial_6(3 * n);
+    std::vector<std::uint32_t> initial_4(n);
     for (std::size_t i{0}; i < n; ++i) {
-        seg_uint::write_6(&initial_6.at(3 * i), &initial.at(i));
+        initial_4.at(i) = seg_uint::write_4(&initial.at(i));
     }
-    std::vector<std::uint16_t> result_6(3 * n);
+    std::vector<std::uint32_t> result_4(n);
+    const auto meta_4 = seg::pagerank_4(matrix, initial_4, result_4, c, comm, rowcnt, left_iterations);
+
+    left_iterations -= meta_4.used_iterations;
+
+    std::vector<double> initial_8(n);
+    for (std::size_t i{0}; i < n; ++i) {
+        const double val = seg_uint::read_4(&result_4.at(i));
+        initial_8.at(i) = val;
+    }
+    const auto meta_8 = fixed::pagerank(matrix, initial_8, result, c, comm, rowcnt, left_iterations);
+
+    return {meta_4, meta_8};
+}
+
+std::array<pagerank::pr_meta, 2>
+pagerank::variable::pagerank_6_8(const CSR &matrix, const std::vector<double> &initial, std::vector<double> &result,
+                                 double c, MPI_Comm comm, const std::vector<int> &rowcnt, int iteration_limit) {
+    const std::size_t n{initial.size()};
+    int left_iterations = iteration_limit;
+
+    std::vector<std::array<std::uint16_t, 3>> initial_6(n);
+    for (std::size_t i{0}; i < n; ++i) {
+        initial_6.at(i) = seg_uint::write_6(&initial.at(i));
+    }
+    std::vector<std::array<std::uint16_t, 3>> result_6(n);
     const auto meta_6 = seg::pagerank_6(matrix, initial_6, result_6, c, comm, rowcnt, left_iterations);
 
     left_iterations -= meta_6.used_iterations;
 
     std::vector<double> initial_8(n);
     for (std::size_t i{0}; i < n; ++i) {
-        double val;
-        seg_uint::read_6(&result_6.at(3 * i), &val);
+        const double val = seg_uint::read_6(result_6.at(i));
         initial_8.at(i) = val;
     }
     const auto meta_8 = fixed::pagerank(matrix, initial_8, result, c, comm, rowcnt, left_iterations);
@@ -522,7 +538,6 @@ void pagerank::print_meta(const pagerank::pr_meta &meta) {
 void pagerank::print_fixed(const pagerank::pr_meta &meta) {
     std::cout << "fixed\n";
     print_meta(meta);
-    std::cout << "\n";
 }
 
 void pagerank::print_2_4_6_8(const std::array<pagerank::pr_meta, 4> &meta) {
@@ -535,5 +550,30 @@ void pagerank::print_2_4_6_8(const std::array<pagerank::pr_meta, 4> &meta) {
     print_meta(meta[2]);
     std::cout << "8_byte_precision\n";
     print_meta(meta[3]);
-    std::cout << "\n";
+}
+
+void pagerank::print_4_6_8(const std::array<pr_meta, 3> &meta) {
+    std::cout << "variable_4_6_8\n";
+    std::cout << "4_byte_precision\n";
+    print_meta(meta[0]);
+    std::cout << "6_byte_precision\n";
+    print_meta(meta[1]);
+    std::cout << "8_byte_precision\n";
+    print_meta(meta[2]);
+}
+
+void pagerank::print_4_8(const std::array<pr_meta, 2> &meta) {
+    std::cout << "variable_4_8\n";
+    std::cout << "4_byte_precision\n";
+    print_meta(meta[0]);
+    std::cout << "8_byte_precision\n";
+    print_meta(meta[1]);
+}
+
+void pagerank::print_6_8(const std::array<pr_meta, 2> &meta) {
+    std::cout << "variable_6_8\n";
+    std::cout << "6_byte_precision\n";
+    print_meta(meta[0]);
+    std::cout << "8_byte_precision\n";
+    print_meta(meta[1]);
 }

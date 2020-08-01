@@ -15,5 +15,4 @@ iteration_counter(const std::vector<int> &sizes, const std::vector<double> &dens
 void
 speedup_test(int size, double density, double eta, int max_iterations, int num_tests, const std::vector<int> &rowcnt,
              std::vector<unsigned> &seg_timings, std::vector<unsigned> &fixed_timings, MPI_Comm comm);
-
 #endif //CODE_PI_BENCHMARKS_H
