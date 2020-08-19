@@ -285,71 +285,63 @@ void pr_performance_test(MPI_Comm comm) {
     }
 }
 
-CSR get_matrix_slice(int size, double density, MPI_Comm comm) {
-    std::mt19937 rng{std::random_device{}()};
-    auto matrix = CSR::row_stochastic(size, density, rng);
-    matrix = CSR::transpose(matrix);
-    const auto matrix_slice = distribute_matrix(matrix, comm, 0);
-    return matrix_slice;
-}
-
 void single_speedup_test(int size, double density, double c, unsigned warmup, unsigned test_iterations, MPI_Comm comm,
                          const std::vector<int> &rowcnt) {
-    int comm_rank;
+    int comm_rank, comm_size;
     MPI_Comm_rank(comm, &comm_rank);
+    MPI_Comm_size(comm, &comm_size);
 
-    const auto matrix_slice = get_matrix_slice(size, density, comm);
-
+    std::mt19937 rng{std::random_device{}()};
+    const auto matrix_slice = CSR::distributed_column_stochastic(size, density, rng, comm_size * 4, comm);
     std::vector<double> initial;
     initial.reserve(size);
     for (int i{0}; i < size; ++i) {
         initial.push_back(1.);
     }
 
+    std::vector<std::array<pagerank::pr_meta, 2>> metas_4_8;
+    metas_4_8.reserve(test_iterations);
+    std::vector<std::uint64_t> total_times_4_8;
+    total_times_4_8.reserve(test_iterations);
+
     std::vector<double> result;
     for (unsigned i{0}; i < warmup; ++i) {
         pagerank::variable::pagerank_4_8(matrix_slice, initial, result, c, comm, rowcnt);
     }
-
     for (unsigned i{0}; i < test_iterations; ++i) {
         using namespace std::chrono;
         const auto start = high_resolution_clock::now();
         const auto meta = pagerank::variable::pagerank_4_8(matrix_slice, initial, result, c, comm, rowcnt);
         const auto end = high_resolution_clock::now();
-        if (comm_rank == 0) {
-            pagerank::print_4_8(meta);
-            std::cout << "total_time " << duration_cast<nanoseconds>(end - start).count() << "\n\n";
+        metas_4_8.push_back(meta);
+        total_times_4_8.push_back(duration_cast<nanoseconds>(end - start).count());
+    }
+    if (comm_rank == 0) {
+        for (std::size_t i{0}; i < metas_4_8.size(); ++i) {
+            pagerank::print_4_8(metas_4_8.at(i));
+            std::cout << "total_time " << total_times_4_8.at(i) << "\n\n";
         }
     }
 
+    std::vector<pagerank::pr_meta> metas_fix;
+    metas_fix.reserve(test_iterations);
+    std::vector<std::uint64_t> total_times_fix;
+    total_times_fix.reserve(test_iterations);
     for (unsigned i{0}; i < warmup; ++i) {
         pagerank::fixed::pagerank(matrix_slice, initial, result, c, comm, rowcnt);
     }
-
     for (unsigned i{0}; i < test_iterations; ++i) {
         using namespace std::chrono;
         const auto start = high_resolution_clock::now();
         const auto meta = pagerank::fixed::pagerank(matrix_slice, initial, result, c, comm, rowcnt);
         const auto end = high_resolution_clock::now();
-        if (comm_rank == 0) {
-            pagerank::print_fixed(meta);
-            std::cout << "total_time " << duration_cast<nanoseconds>(end - start).count() << "\n\n";
+        metas_fix.push_back(meta);
+        total_times_fix.push_back(duration_cast<nanoseconds>(end - start).count());
+    }
+    if (comm_rank == 0) {
+        for (std::size_t i{0}; i < metas_fix.size(); ++i) {
+            pagerank::print_fixed(metas_fix.at(i));
+            std::cout << "total_time " << total_times_fix.at(i) << "\n\n";
         }
     }
-
-    /*
-    for (unsigned i{0}; i < warmup; ++i) {
-        pagerank::variable::pagerank_4_6_8(matrix_slice, initial, result, c, comm, rowcnt);
-    }
-
-    for (unsigned i{0}; i < test_iterations; ++i) {
-        using namespace std::chrono;
-        const auto start = high_resolution_clock::now();
-        const auto meta = pagerank::variable::pagerank_4_6_8(matrix_slice, initial, result, c, comm, rowcnt);
-        const auto end = high_resolution_clock::now();
-        if (comm_rank == 0) {
-            pagerank::print_4_6_8(meta);
-            std::cout << "total_time " << duration_cast<nanoseconds>(end - start).count() << "\n\n";
-        }
-    }// */
 }

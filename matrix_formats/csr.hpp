@@ -51,7 +51,7 @@ public:
     static CSR row_stochastic(unsigned n, double density, std::mt19937 rng);
 
     static CSR
-    distributed_column_stochastic(std::size_t n, double density, std::mt19937 rng, std::size_t block_size, MPI_Comm comm,
+    distributed_column_stochastic(std::size_t n, double density, std::mt19937 rng, std::size_t num_steps, MPI_Comm comm,
                                   int root = 0);
 
     static CSR diagonally_dominant(unsigned n, double density, std::mt19937 rng);

@@ -182,11 +182,12 @@ CSR CSR::row_stochastic(unsigned int n, double density, std::mt19937 rng) {
 }
 
 CSR
-CSR::distributed_column_stochastic(std::size_t n, double density, std::mt19937 rng, std::size_t block_size, MPI_Comm comm,
+CSR::distributed_column_stochastic(std::size_t n, double density, std::mt19937 rng, std::size_t num_steps, MPI_Comm comm,
                                    int root) {
     const auto width = n;
     const auto height = n;
-    auto remaining_height = n;
+    const auto block_size = height / num_steps;
+    auto remaining_height = height;
 
     int comm_rank;
     MPI_Comm_rank(comm, &comm_rank);
@@ -194,36 +195,17 @@ CSR::distributed_column_stochastic(std::size_t n, double density, std::mt19937 r
     CSR initial = CSR::empty(0, height);
     CSR matrix_builder = distribute_matrix(initial, comm, root);
 
-    CSR big_builder;
-    if (comm_rank == root) {
-        big_builder = CSR::empty(0, height);
-    }
-
     while (remaining_height > 0) {
         const auto next_height = std::min(block_size, remaining_height);
         CSR matrix_block;
         if (comm_rank == root) {
             matrix_block = row_stochastic(width, next_height, density, rng);
             matrix_block = transpose(matrix_block);
-
-            big_builder.concat_horizontal(matrix_block);
         }
         CSR matrix_block_slice = distribute_matrix(matrix_block, comm, root);
-
-        /*if (comm_rank == root) {
-            std::cout << "matrix_block\n";
-            matrix_block.print();
-        }
-        MPI_Barrier(comm);//*/
-
         matrix_builder.concat_horizontal(matrix_block_slice);
 
         remaining_height -= next_height;
-    }
-
-    if (comm_rank == root) {
-        std::cout << "big builder:\n";
-        big_builder.print();
     }
 
     return matrix_builder;

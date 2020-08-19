@@ -286,46 +286,12 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    //pr_performance_test(comm);
-    const int size = std::atoi(argv[1]);
-    const double density = std::atof(argv[2]);
+    const int size = std::pow(2, std::atoi(argv[1]));
+    const double density = std::pow(2, -std::atoi(argv[2]));
 
-    /*const std::vector<double> values{1};
-    const std::vector<int> colidx{0};
-    const std::vector<int> rowptr{0, 1, 1, 1};
-    const std::size_t num_cols{2};
-    CSR matrix{values, colidx, rowptr, num_cols};//*/
-
-    int comm_rank, comm_size;
-    const auto comm = MPI_COMM_WORLD;
-    MPI_Comm_rank(comm, &comm_rank);
-    MPI_Comm_size(comm, &comm_size);
-    constexpr int root{0};
-
-    if (comm_rank == root) {
-        std::cout << "size: " << size << ", density: " << density << "\n";
-    }
-    const auto seed = std::random_device{}();
-    const auto matrix_local = CSR::row_stochastic(size, 1. / size, std::mt19937{seed});
-
-    const auto matrix_distrib = CSR::distributed_column_stochastic(size, 1. / size, std::mt19937{seed}, 2, comm, root);
-
-    /*if (comm_rank == root) {
-        std::cout << "matrix local\n";
-        CSR::transpose(matrix_local).print();
-    }*/
-
-    for (int i{0}; i < comm_size; ++i) {
-        if (comm_rank == i) {
-            std::cout << "rank " << i << " matrix distrib\n";
-            matrix_distrib.print();
-        }
-        MPI_Barrier(comm);
-    }
-
-    /*const double c{0.85};
-    const unsigned warmup{1};
-    const unsigned test_iterations{1};
+    const double c{0.85};
+    const unsigned warmup{20};
+    const unsigned test_iterations{100};
     const auto comm = MPI_COMM_WORLD;
 
     std::vector<int> rowcnt, start_row;
