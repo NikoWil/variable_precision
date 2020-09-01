@@ -67,7 +67,8 @@ pagerank::seg::spmv_4(const CSR &matrix, const std::vector<std::uint32_t> &x, st
 }
 
 void
-pagerank::seg::spmv_6(const CSR &matrix, const std::vector<std::array<std::uint16_t, 3>> &x, std::vector<std::array<std::uint16_t, 3>> &y, double c) {
+pagerank::seg::spmv_6(const CSR &matrix, const std::vector<std::array<std::uint16_t, 3>> &x,
+                      std::vector<std::array<std::uint16_t, 3>> &y, double c) {
     assert(x.size() == static_cast<size_t>(matrix.num_cols()) &&
            "pagerank::seg::spmv_6 Wrong dimension of x or A in A*x");
     assert(y.size() == matrix.num_rows() &&

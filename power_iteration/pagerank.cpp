@@ -330,6 +330,7 @@ pagerank::pr_meta pagerank::seg::pagerank_6(const CSR &matrix, const std::vector
     }
 
     std::vector<int> recvcounts;
+    recvcounts.reserve(rowcnt.size());
     for (const auto r : rowcnt) {
         recvcounts.push_back(3 * r);
     }

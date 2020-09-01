@@ -50,7 +50,7 @@ namespace {
     inline double norm_6(const std::vector<std::array<std::uint16_t, 3>> &v) {
         double sum{0.};
 #pragma omp parallel for reduction(+ : sum) default(none) shared(v)
-        for (size_t i = 0; i < v.size(); i += 3) {
+        for (size_t i = 0; i < v.size(); ++i) {
             const double val = seg_uint::read_6(v.at(i));
             sum += std::pow(std::abs(val), N);
         }
@@ -113,7 +113,7 @@ inline bool normalize_6(std::vector<std::array<std::uint16_t, 3>> &v) {
     }
 
 #pragma omp parallel for default(none) shared(v)
-    for (size_t i = 0; i < v.size(); i += 3) {
+    for (size_t i = 0; i < v.size(); ++i) {
         double num = seg_uint::read_6(v.at(i));
         num /= norm_fac;
         v.at(i) = seg_uint::write_6(&num);
