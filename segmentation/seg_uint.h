@@ -13,20 +13,20 @@ namespace {
                   "IEEE 754 floating point format is required for segmentation to work");
 
     union Seg_16 {
-        static_assert(sizeof(double) == 4 * sizeof(uint16_t),
+        static_assert(sizeof(double) == 4 * sizeof(std::uint16_t),
                       "Double segmentation needs 4 uint16_t to be exactly 1 double size-wise");
 
         double d;
-        uint64_t u64;
-        uint16_t u16[4];
+        std::uint64_t u64;
+        std::uint16_t u16[4];
     };
 
     union Seg_32 {
-        static_assert(sizeof(double) == 2 * sizeof(uint32_t),
+        static_assert(sizeof(double) == 2 * sizeof(std::uint32_t),
                       "Double segmentation needs 2 uint32_t to be exactly 1 double size-wise");
         double d;
-        uint64_t u64;
-        uint32_t u32[2];
+        std::uint64_t u64;
+        std::uint32_t u32[2];
     };
 }
 
