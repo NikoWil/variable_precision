@@ -91,14 +91,16 @@ void seg_pr_speed_test(int n, double density) {
     std::vector<pagerank::pr_meta> fix_metas;
     fix_metas.reserve(num_tests);
 
+    const double epsilon = 10 * std::pow(2, -52);
+
     for (std::uint32_t i{0}; i < warmup; ++i) {
-        pagerank::fixed::pagerank(matrix_slice, initial, result, c, comm, rowcnt);
+        pagerank::fixed::pagerank(matrix_slice, initial, result, c, epsilon, comm, rowcnt);
         sum += result[0];
         initial[0] = i + 1;
     }
     std::cout << "fixed warmup" << std::endl;
     for (std::uint32_t i{0}; i < num_tests; ++i) {
-        auto meta = pagerank::fixed::pagerank(matrix_slice, initial, result, c, comm, rowcnt);
+        auto meta = pagerank::fixed::pagerank(matrix_slice, initial, result, c, epsilon, comm, rowcnt);
         fix_metas.push_back(std::move(meta));
 
         sum += result[0];
@@ -108,13 +110,13 @@ void seg_pr_speed_test(int n, double density) {
 
     initial[0] = 1.;
     for (std::uint32_t i{0}; i < warmup; ++i) {
-        pagerank::variable::pagerank_2_4_6_8(matrix_slice, initial, result, c, comm, rowcnt);
+        pagerank::variable::pagerank_2_4_6_8(matrix_slice, initial, result, c, epsilon, comm, rowcnt);
         sum += result[0];
         initial[0] = i + 1;
     }
 
     for (std::uint32_t i{0}; i < num_tests; ++i) {
-        auto meta_var = pagerank::variable::pagerank_2_4_6_8(matrix_slice, initial, result, c, comm, rowcnt);
+        auto meta_var = pagerank::variable::pagerank_2_4_6_8(matrix_slice, initial, result, c, epsilon, comm, rowcnt);
         var_metas.push_back(std::move(meta_var));
         sum += result[0];
         initial[0] = i + 1.;
@@ -290,14 +292,14 @@ int main(int argc, char *argv[]) {
     const double density = std::pow(2, -std::atoi(argv[2]));
 
     const double c{0.85};
-    const unsigned warmup{20};
-    const unsigned test_iterations{100};
+    const unsigned warmup{0};
+    const unsigned test_iterations{1};
     const auto comm = MPI_COMM_WORLD;
 
     std::vector<int> rowcnt, start_row;
     get_rowcnt_start_row(comm, size, rowcnt, start_row);
 
-    single_speedup_test(size, density, c, warmup, test_iterations, comm, rowcnt);// */
+    single_speedup_test(size, density, c, warmup, test_iterations, comm, rowcnt);
 
     MPI_Finalize();
     return 0;

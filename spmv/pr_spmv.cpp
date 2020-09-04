@@ -6,7 +6,7 @@
 #include "../segmentation/seg_uint.h"
 
 
-void pagerank::fixed::spmv(const CSR &matrix, const std::vector<double> &x, std::vector<double> &y, double c) {
+void pagerank::fixed::spmv(const CSR &matrix, const std::vector<double> &x, std::vector<double> &__restrict__ y, double c) {
     assert(x.size() == static_cast<size_t>(matrix.num_cols()) &&
            "pagerank::fixed::spmv Wrong dimension of x or A in A*x");
     assert(y.size() == matrix.num_rows() &&
@@ -25,7 +25,7 @@ void pagerank::fixed::spmv(const CSR &matrix, const std::vector<double> &x, std:
 }
 
 void
-pagerank::seg::spmv_2(const CSR &matrix, const std::vector<std::uint16_t> &x, std::vector<std::uint16_t> &y, double c) {
+pagerank::seg::spmv_2(const CSR &matrix, const std::vector<std::uint16_t> &x, std::vector<std::uint16_t> &__restrict__ y, double c) {
     assert(x.size() == static_cast<size_t>(matrix.num_cols()) &&
            "pagerank::seg::spmv_2 Wrong dimension of x or A in A*x");
     assert(y.size() == matrix.num_rows() &&
@@ -46,7 +46,7 @@ pagerank::seg::spmv_2(const CSR &matrix, const std::vector<std::uint16_t> &x, st
 }
 
 void
-pagerank::seg::spmv_4(const CSR &matrix, const std::vector<std::uint32_t> &x, std::vector<std::uint32_t> &y, double c) {
+pagerank::seg::spmv_4(const CSR &matrix, const std::vector<std::uint32_t> &x, std::vector<std::uint32_t> &__restrict__ y, double c) {
     assert(x.size() == static_cast<size_t>(matrix.num_cols()) &&
            "pagerank::seg::spmv_4 Wrong dimension of x or A in A*x");
     assert(y.size() == matrix.num_rows() &&
@@ -68,7 +68,7 @@ pagerank::seg::spmv_4(const CSR &matrix, const std::vector<std::uint32_t> &x, st
 
 void
 pagerank::seg::spmv_6(const CSR &matrix, const std::vector<std::array<std::uint16_t, 3>> &x,
-                      std::vector<std::array<std::uint16_t, 3>> &y, double c) {
+                      std::vector<std::array<std::uint16_t, 3>> &__restrict__ y, double c) {
     assert(x.size() == static_cast<size_t>(matrix.num_cols()) &&
            "pagerank::seg::spmv_6 Wrong dimension of x or A in A*x");
     assert(y.size() == matrix.num_rows() &&

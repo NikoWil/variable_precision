@@ -10,6 +10,26 @@
 #include <cstdint>
 #include "../segmentation/seg_uint.h"
 
+/**
+ * compute
+ * new_epsilon = old_epsilon / machine_epsilon * custom_epsilon
+ * @param num_bytes
+ * @param epsilon
+ * @return
+ */
+inline double adjust_epsilon(std::uint8_t num_bytes, double epsilon) {
+    const std::uint8_t mantissa_bits = 8 * num_bytes - 12;
+    const double custom_precision_eps = std::pow(2, -mantissa_bits);
+    const double machine_eps = std::pow(2, -52);
+    return epsilon * (custom_precision_eps / machine_eps);
+}
+
+template <int bytes>
+double get_epsilon() {
+    const int mantissa_bits = 8 * bytes - 12;
+    return 240 * std::pow(2, -mantissa_bits);
+}
+
 namespace {
     template <int N>
     inline double norm(const std::vector<double> &v) {

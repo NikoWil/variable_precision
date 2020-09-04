@@ -48,6 +48,7 @@ namespace seg_uint {
     inline double read_6(std::array<std::uint16_t, 3> u) {
         Seg_16 s{};
         s.u64 = 0;
+        s.u16[0] = 0;
         s.u16[1] = u[0];
         s.u16[2] = u[1];
         s.u16[3] = u[2];

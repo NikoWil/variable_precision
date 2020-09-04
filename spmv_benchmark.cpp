@@ -131,56 +131,9 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
         }
     }
 
-    // out_convert
-    std::vector<uint64_t> timings_out_convert_conversion;
-    std::vector<uint64_t> timings_out_convert_spmv;
-    {
-        std::vector<double> x_double(x.size());
-        for (unsigned i{0}; i < warmup; ++i) {
-            for (size_t k{0}; k < x.size(); ++k) {
-                x_double.at(k) = seg_uint::read_4(&x_halves.at(k));
-            }
-            seg_uint::out_convert::spmv_4(matrix, x_double, y_halves);
-
-            u_sum += y_halves[0];
-            const double val = value_distrib(rng);
-            const unsigned index = index_distrib(rng);
-            x_halves.at(index) = seg_uint::write_4(&val);
-        }
-
-
-        for (unsigned i{0}; i < iterations; ++i) {
-            const auto start_conv = high_resolution_clock::now();
-            for (size_t k{0}; k < x.size(); ++k) {
-                x_double.at(k) = seg_uint::read_4(&x_halves.at(k));
-            }
-            const auto end_conv = high_resolution_clock::now();
-
-            const auto start_spmv = high_resolution_clock::now();
-            seg_uint::out_convert::spmv_4(matrix, x_double, y_halves);
-            const auto end_spmv = high_resolution_clock::now();
-
-            timings_out_convert_conversion.push_back(duration_cast<nanoseconds>(end_conv - start_conv).count());
-            timings_out_convert_spmv.push_back(duration_cast<nanoseconds>(end_spmv - start_spmv).count());
-
-            u_sum += y_halves[0];
-            const double val = value_distrib(rng);
-            const unsigned index = index_distrib(rng);
-            x_halves.at(index) = seg_uint::write_4(&val);
-        }
-    }
-
-    if (false) {
-        std::cout << "u_sum: " << u_sum << '\n';
-    }
-
     std::vector<uint64_t> timings_pre_convert_total(iterations);
     std::transform(timings_pre_convert_conversion.begin(), timings_pre_convert_conversion.end(),
                    timings_pre_convert_spmv.begin(), timings_pre_convert_total.begin(), std::plus<uint64_t >());
-
-    std::vector<uint64_t> timings_out_convert_total(iterations);
-    std::transform(timings_out_convert_conversion.begin(), timings_out_convert_conversion.end(),
-                   timings_out_convert_spmv.begin(), timings_out_convert_total.begin(), std::plus<uint64_t>());
 
     // calculate median/ average timings
     const auto median_fixed = median(timings_fixed);
@@ -190,20 +143,12 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
     const auto median_pre_convert_spmv = median(timings_pre_convert_spmv);
     const auto median_pre_convert_total = median(timings_pre_convert_total);
 
-    const auto median_out_convert_conv = median(timings_out_convert_conversion);
-    const auto median_out_convert_spmv = median(timings_out_convert_spmv);
-    const auto median_out_convert_total = median(timings_out_convert_total);
-
     const auto average_fixed = average(timings_fixed);
     const auto average_calc_convert = average(timings_calc_convert);
 
     const auto average_pre_convert_conv = average(timings_pre_convert_conversion);
     const auto average_pre_convert_spmv = average(timings_pre_convert_spmv);
     const auto average_pre_convert_total = average(timings_pre_convert_total);
-
-    const auto average_out_convert_conv = average(timings_out_convert_conversion);
-    const auto average_out_convert_spmv = average(timings_out_convert_spmv);
-    const auto average_out_convert_total = average(timings_out_convert_total);
 
 
     // output results
@@ -234,16 +179,6 @@ void benchmark_spmv(unsigned size, double density, unsigned iterations, unsigned
     print_vector(timings_pre_convert_total, "timings_pre-conv-total");
     print_vector(timings_pre_convert_conversion, "timings_pre-conv-conversion");
     print_vector(timings_pre_convert_spmv, "timings_pre-conv-spmv");
-
-    std::cout << "Segmented SpMV, conversion from segments before, conversion to segments during SpMV\n";
-    std::cout << "median: total conversion spmv\n";
-    std::cout << median_out_convert_total << " " << median_out_convert_conv << " " << median_out_convert_spmv << "\n";
-    std::cout << "average: total conversion spmv\n";
-    std::cout << average_out_convert_total << " " << average_out_convert_conv << " " << average_out_convert_spmv
-              << "\n";
-    print_vector(timings_out_convert_total, "timings_out-conv-total");
-    print_vector(timings_out_convert_conversion, "timings_out-conv-conversion");
-    print_vector(timings_out_convert_spmv, "timings_out-conv-spmv");
 }
 
 

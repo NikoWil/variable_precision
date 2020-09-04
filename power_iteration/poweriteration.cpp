@@ -40,7 +40,6 @@ std::pair<bool, int> local::power_iteration(const CSR &matrix, const std::vector
         std::swap(next, curr);
         ++i;
     }
-    // std::cout << "Simple power iteration " << i << " iterations" << std::endl;
 
     return std::make_pair(done, i);
 }
