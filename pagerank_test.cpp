@@ -12,6 +12,7 @@
 #include "power_iteration/pagerank.h"
 #include "segmentation/seg_uint.h"
 #include "communication.h"
+#include "spmv/pr_spmv.h"
 
 void test_convergence() {
     // TODO: make sure memory requirements remain <= 60 GB
@@ -293,7 +294,7 @@ void single_speedup_test(int size, double density, double c, unsigned warmup, un
     MPI_Comm_rank(comm, &comm_rank);
     MPI_Comm_size(comm, &comm_size);
 
-    const auto seed = 2051702761; // std::random_device{}();
+    const auto seed = std::random_device{}();
     if (comm_rank == 0) {
         std::cout << "seed: " << seed << '\n';
     }
@@ -307,22 +308,21 @@ void single_speedup_test(int size, double density, double c, unsigned warmup, un
         initial.push_back(1.);
     }
 
-    std::vector<double> result;
-
     ////////////////
     // Test 4 8 ////
     ////////////////
+    std::vector<double> result_4_8;
     std::vector<std::array<pagerank::pr_meta, 2>> metas_4_8;
     metas_4_8.reserve(test_iterations);
     std::vector<std::uint64_t> total_times_4_8;
     total_times_4_8.reserve(test_iterations);
     for (unsigned i{0}; i < warmup; ++i) {
-        pagerank::variable::pagerank_4_8(matrix_slice, initial, result, c, epsilon, comm, rowcnt);
+        pagerank::variable::pagerank_4_8(matrix_slice, initial, result_4_8, c, epsilon, comm, rowcnt);
     }
     for (unsigned i{0}; i < test_iterations; ++i) {
         using namespace std::chrono;
         const auto start = high_resolution_clock::now();
-        const auto meta = pagerank::variable::pagerank_4_8(matrix_slice, initial, result, c, epsilon, comm, rowcnt);
+        const auto meta = pagerank::variable::pagerank_4_8(matrix_slice, initial, result_4_8, c, epsilon, comm, rowcnt);
         const auto end = high_resolution_clock::now();
         metas_4_8.push_back(meta);
         total_times_4_8.push_back(duration_cast<nanoseconds>(end - start).count());
@@ -337,17 +337,18 @@ void single_speedup_test(int size, double density, double c, unsigned warmup, un
     ////////////////
     // Test 4 6 8 //
     ////////////////
+    /*std::vector<double> result_4_6_8;
     std::vector<std::array<pagerank::pr_meta, 3>> metas_4_6_8;
     metas_4_6_8.reserve(test_iterations);
     std::vector<std::uint64_t> total_times_4_6_8;
     total_times_4_6_8.reserve(test_iterations);
     for (unsigned i{0}; i < warmup; ++i) {
-        pagerank::variable::pagerank_4_6_8(matrix_slice, initial, result, c, epsilon, comm, rowcnt);
+        pagerank::variable::pagerank_4_6_8(matrix_slice, initial, result_4_6_8, c, epsilon, comm, rowcnt);
     }
     for (unsigned i{0}; i < test_iterations; ++i) {
         using namespace std::chrono;
         const auto start = high_resolution_clock::now();
-        const auto meta = pagerank::variable::pagerank_4_6_8(matrix_slice, initial, result, c, epsilon, comm, rowcnt);
+        const auto meta = pagerank::variable::pagerank_4_6_8(matrix_slice, initial, result_4_6_8, c, epsilon, comm, rowcnt);
         const auto end = high_resolution_clock::now();
         metas_4_6_8.push_back(meta);
         total_times_4_6_8.push_back(duration_cast<nanoseconds>(end - start).count());
@@ -357,22 +358,23 @@ void single_speedup_test(int size, double density, double c, unsigned warmup, un
             pagerank::print_4_6_8(metas_4_6_8.at(i));
             std::cout << "total_time " << total_times_4_6_8.at(i) << "\n\n";
         }
-    }
+    } //*/
 
     ////////////////
     // Test fixed //
     ////////////////
+    std::vector<double> result_fix;
     std::vector<pagerank::pr_meta> metas_fix;
     metas_fix.reserve(test_iterations);
     std::vector<std::uint64_t> total_times_fix;
     total_times_fix.reserve(test_iterations);
     for (unsigned i{0}; i < warmup; ++i) {
-        pagerank::fixed::pagerank(matrix_slice, initial, result, c, epsilon, comm, rowcnt);
+        pagerank::fixed::pagerank(matrix_slice, initial, result_fix, c, epsilon, comm, rowcnt);
     }
     for (unsigned i{0}; i < test_iterations; ++i) {
         using namespace std::chrono;
         const auto start = high_resolution_clock::now();
-        const auto meta = pagerank::fixed::pagerank(matrix_slice, initial, result, c, epsilon, comm, rowcnt);
+        const auto meta = pagerank::fixed::pagerank(matrix_slice, initial, result_fix, c, epsilon, comm, rowcnt);
         const auto end = high_resolution_clock::now();
         metas_fix.push_back(meta);
         total_times_fix.push_back(duration_cast<nanoseconds>(end - start).count());
@@ -383,4 +385,89 @@ void single_speedup_test(int size, double density, double c, unsigned warmup, un
             std::cout << "total_time " << total_times_fix.at(i) << "\n\n";
         }
     }
+
+    ////////////////
+    // Test 6 8 ////
+    ////////////////
+    /*std::vector<double> result_6_8;
+    std::vector<std::array<pagerank::pr_meta, 2>> metas_6_8;
+    metas_6_8.reserve(test_iterations);
+    std::vector<std::uint64_t> total_times_6_8;
+    total_times_6_8.reserve(test_iterations);
+    for (unsigned i{0}; i < warmup; ++i) {
+        pagerank::variable::pagerank_6_8(matrix_slice, initial, result_6_8, c, epsilon, comm, rowcnt);
+    }
+    for (unsigned i{0}; i < test_iterations; ++i) {
+        using namespace std::chrono;
+        const auto start = high_resolution_clock::now();
+        const auto meta = pagerank::variable::pagerank_6_8(matrix_slice, initial, result_6_8, c, epsilon, comm, rowcnt);
+        const auto end = high_resolution_clock::now();
+        metas_6_8.push_back(meta);
+        total_times_6_8.push_back(duration_cast<nanoseconds>(end - start).count());
+    }
+    if (comm_rank == 0) {
+        for (std::size_t i{0}; i < metas_6_8.size(); ++i) {
+            pagerank::print_6_8(metas_6_8.at(i));
+            std::cout << "total_time " << total_times_6_8.at(i) << "\n\n";
+        }
+    }//*/
+
+    /*
+    // difference 4 6 8 and 4 8
+    double difference_4_6_8_and_4_8{0};
+    for (size_t i{0}; i < result_4_6_8.size(); ++i) {
+        difference_4_6_8_and_4_8 += std::abs(result_4_6_8.at(i) - result_4_8.at(i));
+    }
+
+    // difference 4 6 8 and 6 8
+    double difference_4_6_8_and_6_8{0};
+    for (size_t i{0}; i < result_4_6_8.size(); ++i) {
+        difference_4_6_8_and_6_8 += std::abs(result_4_6_8.at(i) - result_6_8.at(i));
+    }
+
+    // difference 4 6 8 and 8
+    double difference_4_6_8_and_fix{0};
+    for (size_t i{0}; i < result_4_6_8.size(); ++i) {
+        difference_4_6_8_and_fix += std::abs(result_4_6_8.at(i) - result_fix.at(i));
+    }
+    // difference 4 8 and 6 8
+    double difference_4_8_and_6_8{0};
+    for (size_t i{0}; i < result_4_8.size(); ++i) {
+        difference_4_8_and_6_8 += std::abs(result_4_8.at(i) - result_6_8.at(i));
+    }
+
+    // difference 4 8 and 8
+    double difference_4_8_and_fix{0};
+    for (size_t i{0}; i < result_4_8.size(); ++i) {
+        difference_4_8_and_fix += std::abs(result_4_8.at(i) - result_fix.at(i));
+    }
+
+    std::cout << "\n\n";
+    std::cout << "4_6_8 vs 4_8 " << difference_4_6_8_and_4_8 << '\n';
+    std::cout << "4_6_8 vs 6_8 " << difference_4_6_8_and_6_8 << '\n';
+    std::cout << "4_6_8 vs fix " << difference_4_6_8_and_fix << '\n';
+    std::cout << "4_8 vs 6_8   " << difference_4_8_and_6_8 << '\n';
+    std::cout << "4_8 vs fix   " << difference_4_8_and_fix << '\n'; //*/
+
+    std::vector<std::array<std::uint16_t, 3>> x;
+    x.reserve(size);
+    for (size_t i{0}; i < static_cast<unsigned>(size); ++i) {
+        x.push_back(seg_uint::write_6(&initial.at(i)));
+    }
+    std::vector<std::array<std::uint16_t, 3>> y(matrix_slice.num_rows());
+
+    const size_t spmv_iterations{20 * test_iterations};
+    std::vector<std::uint64_t> spmv_times_6;
+    spmv_times_6.reserve(spmv_iterations);
+    for (size_t i{0}; i < spmv_iterations; ++i) {
+        using namespace std::chrono;
+        const auto start = high_resolution_clock::now();
+        pagerank::seg::spmv_6(matrix_slice, x, y, c);
+        const auto end = high_resolution_clock::now();
+        spmv_times_6.push_back(duration_cast<nanoseconds>(end - start).count());
+    }
+    if (comm_rank == 0) {
+        print_vector(spmv_times_6, "spmv_times_6");
+    }
+
 }
