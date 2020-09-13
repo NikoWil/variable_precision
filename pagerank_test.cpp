@@ -337,7 +337,7 @@ void single_speedup_test(int size, double density, double c, unsigned warmup, un
     ////////////////
     // Test 4 6 8 //
     ////////////////
-    /*std::vector<double> result_4_6_8;
+    std::vector<double> result_4_6_8;
     std::vector<std::array<pagerank::pr_meta, 3>> metas_4_6_8;
     metas_4_6_8.reserve(test_iterations);
     std::vector<std::uint64_t> total_times_4_6_8;
